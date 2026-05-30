@@ -38,20 +38,33 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   try {
     const member = await prisma.member.update({ where: { id }, data });
 
-    // Sinkronkan pasangan (hanya dari sisi anggota keturunan, bukan pasangan).
-    if (!current.marriedIn && "spouseName" in b) {
-      const spouseName = str(b.spouseName);
-      if (spouseName) {
-        if (current.partnerId) {
-          await prisma.member.update({ where: { id: current.partnerId }, data: { name: spouseName, spouseName: member.name, isDeceased: !!b.spouseDeceased } });
-        } else {
-          const spouse = await prisma.member.create({ data: { name: spouseName, spouseName: member.name, marriedIn: true, partnerId: id, isDeceased: !!b.spouseDeceased } });
-          await prisma.member.update({ where: { id }, data: { partnerId: spouse.id } });
+    if (current.marriedIn) {
+      // Menyunting pasangan: sinkronkan denormalisasi di anggota keturunan.
+      if (current.partnerId) {
+        const sync: Prisma.MemberUncheckedUpdateInput = {};
+        if ("name" in b && typeof data.name === "string") sync.spouseName = data.name;
+        if ("isDeceased" in b) sync.spouseDeceased = !!b.isDeceased;
+        if (Object.keys(sync).length) await prisma.member.update({ where: { id: current.partnerId }, data: sync }).catch(() => {});
+      }
+    } else {
+      // Anggota keturunan: kelola pasangan dari sisi ini.
+      if ("spouseName" in b) {
+        const spouseName = str(b.spouseName);
+        if (spouseName) {
+          if (current.partnerId) {
+            await prisma.member.update({ where: { id: current.partnerId }, data: { name: spouseName, spouseName: member.name, isDeceased: !!b.spouseDeceased } });
+          } else {
+            const spouse = await prisma.member.create({ data: { name: spouseName, spouseName: member.name, marriedIn: true, partnerId: id, isDeceased: !!b.spouseDeceased } });
+            await prisma.member.update({ where: { id }, data: { partnerId: spouse.id } });
+          }
+        } else if (current.partnerId) {
+          await prisma.member.update({ where: { id }, data: { partnerId: null } });
+          await prisma.member.delete({ where: { id: current.partnerId } }).catch(() => {});
         }
-      } else if (current.partnerId) {
-        // Pasangan dihapus
-        await prisma.member.update({ where: { id }, data: { partnerId: null } });
-        await prisma.member.delete({ where: { id: current.partnerId } }).catch(() => {});
+      }
+      // Cerminkan status almarhum ke pasangan (spouseDeceased).
+      if ("isDeceased" in b && current.partnerId) {
+        await prisma.member.update({ where: { id: current.partnerId }, data: { spouseDeceased: !!b.isDeceased } }).catch(() => {});
       }
     }
     return NextResponse.json({ ok: true, member });
@@ -67,18 +80,29 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ ok: false, message: "Tidak diizinkan." }, { status: 401 });
   }
   const { id } = await params;
-  const me = await prisma.member.findUnique({ where: { id }, select: { partnerId: true } });
-  const childCount = await prisma.member.count({ where: { parentId: id } });
-  if (childCount > 0) {
-    return NextResponse.json(
-      { ok: false, message: `Tidak bisa dihapus: masih punya ${childCount} anak. Pindahkan/hapus anak dulu.` },
-      { status: 409 },
-    );
-  }
+  const me = await prisma.member.findUnique({ where: { id }, select: { marriedIn: true, partnerId: true } });
+  if (!me) return NextResponse.json({ ok: false, message: "Anggota tidak ditemukan." }, { status: 404 });
+
   try {
-    await prisma.member.delete({ where: { id } });
-    // Hapus pasangan yang ikut terhubung (jika ada).
-    if (me?.partnerId) await prisma.member.delete({ where: { id: me.partnerId } }).catch(() => {});
+    if (me.marriedIn) {
+      // Menghapus PASANGAN: lepaskan tautan di anggota keturunan, jangan hapus dia.
+      if (me.partnerId) {
+        await prisma.member.update({ where: { id: me.partnerId }, data: { spouseName: null, spouseDeceased: false } }).catch(() => {});
+      }
+      await prisma.member.delete({ where: { id } });
+      return NextResponse.json({ ok: true });
+    }
+
+    // Menghapus anggota KETURUNAN: blokir bila masih punya anak.
+    const childCount = await prisma.member.count({ where: { parentId: id } });
+    if (childCount > 0) {
+      return NextResponse.json(
+        { ok: false, message: `Tidak bisa dihapus: masih punya ${childCount} anak. Pindahkan/hapus anak dulu.` },
+        { status: 409 },
+      );
+    }
+    await prisma.member.delete({ where: { id } }); // partnerId pasangan -> null (onDelete SetNull)
+    if (me.partnerId) await prisma.member.delete({ where: { id: me.partnerId } }).catch(() => {}); // hapus pasangannya juga
     return NextResponse.json({ ok: true });
   } catch (e) {
     const err = e as { code?: string; message: string };

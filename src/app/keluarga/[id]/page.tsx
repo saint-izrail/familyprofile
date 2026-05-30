@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { getFamily } from "@/lib/members";
 import { initials } from "@/lib/format";
 import { Reveal } from "@/components/reveal";
-import { IconArrowLeft, IconUsers, IconArrowRight, IconHeart } from "@/components/icons";
+import { IconArrowLeft, IconUsers, IconArrowRight, IconHeart, IconCalendar, IconPhoto } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   }
   if (!fam) return { title: "Keluarga tidak ditemukan" };
   const names = fam.members.map((m) => m.name).join(" & ");
-  return { title: `Keluarga ${names} — Bani Amenan Effendi`, description: `Profil keluarga ${names}.` };
+  return {
+    title: `Keluarga ${names} — Bani Amenan Effendi`,
+    description: `Profil keluarga ${names}: foto keluarga, anggota, dan bio singkat.`,
+    openGraph: { title: `Keluarga ${names}`, images: fam.familyPhotoUrl ? [fam.familyPhotoUrl] : undefined },
+  };
 }
 
 export default async function FamilyPage({ params }: { params: Promise<{ id: string }> }) {
@@ -40,62 +44,80 @@ export default async function FamilyPage({ params }: { params: Promise<{ id: str
         Kembali ke silsilah
       </Link>
 
+      {/* Header + Foto keluarga */}
       <Reveal className="mt-5">
-        <section className="relative overflow-hidden rounded-3xl border border-gold/25 bg-surface p-8 text-center shadow-ambient-lg ring-glow md:p-10">
-          <div aria-hidden className="bg-grid pointer-events-none absolute inset-0 opacity-30" />
-          <div className="relative">
+        <section className="overflow-hidden rounded-3xl border border-gold/25 bg-surface shadow-ambient-lg ring-glow">
+          {/* Foto keluarga (banner utama) */}
+          <figure className="relative aspect-[16/9] w-full overflow-hidden border-b border-edge">
+            {fam.familyPhotoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={fam.familyPhotoUrl} alt={`Foto keluarga ${title}`} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary/10 via-surface to-gold/10 text-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-full border border-gold/30 bg-primary/10 text-primary">
+                  <IconPhoto className="h-7 w-7" />
+                </span>
+                <p className="text-sm text-muted">Foto keluarga belum ditambahkan</p>
+              </div>
+            )}
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/50 to-transparent" />
+          </figure>
+
+          <div className="p-6 text-center md:p-8">
             <span className="inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold-soft/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-secondary">
               <IconUsers className="h-3.5 w-3.5" /> Profil Keluarga
             </span>
-            <h1 className="mt-4 font-serif text-3xl font-extrabold gold-text md:text-4xl">{title}</h1>
+            <h1 className="mt-3 font-serif text-3xl font-extrabold gold-text md:text-4xl">{title}</h1>
             {fam.number && <p className="mt-1 text-sm font-semibold tracking-wider text-secondary">{fam.number}</p>}
-
-            {/* Pasangan */}
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-              {fam.members.map((m, i) => (
-                <div key={m.id} className="flex items-center gap-4">
-                  {i > 0 && <IconHeart className="h-6 w-6 text-secondary" />}
-                  <Link
-                    href={`/anggota/${m.id}`}
-                    className="group flex w-44 flex-col items-center gap-2 rounded-2xl border border-edge bg-surface-3 p-5 shadow-ambient transition-all hover:-translate-y-1 hover:border-gold/45 hover:shadow-ambient-lg"
-                  >
-                    <span className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-gold/40 bg-primary/10 text-2xl font-bold text-primary">
-                      {m.avatarUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={m.avatarUrl} alt={m.name} className="h-full w-full object-cover" />
-                      ) : (
-                        initials(m.name)
-                      )}
-                    </span>
-                    <span className="text-sm font-semibold text-ink">
-                      {m.name}
-                      {m.isDeceased && <span className="font-normal text-muted"> (alm)</span>}
-                    </span>
-                    <span className="text-[10px] uppercase tracking-wider text-muted">{m.role}</span>
-                  </Link>
-                </div>
-              ))}
-            </div>
-
-            {fam.bio && <p className="mx-auto mt-7 max-w-xl whitespace-pre-line text-sm text-muted">{fam.bio}</p>}
           </div>
         </section>
       </Reveal>
 
-      {/* Foto keluarga */}
-      {fam.familyPhotoUrl && (
-        <Reveal delay={80} className="mt-6">
-          <figure className="overflow-hidden rounded-3xl border border-edge bg-surface shadow-ambient">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={fam.familyPhotoUrl} alt={`Foto keluarga ${title}`} className="w-full object-cover" />
-            <figcaption className="px-5 py-3 text-center text-xs text-muted">Foto Keluarga</figcaption>
-          </figure>
-        </Reveal>
-      )}
+      {/* Anggota inti + bio sekilas */}
+      <Reveal delay={100} className="mt-6">
+        <section className="rounded-3xl border border-edge bg-surface p-6 shadow-ambient md:p-8">
+          <h2 className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted">
+            <IconHeart className="h-4 w-4 text-secondary" /> Anggota Keluarga
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {fam.members.map((m) => (
+              <Link
+                key={m.id}
+                href={`/anggota/${m.id}`}
+                className="group flex gap-4 rounded-2xl border border-edge bg-surface-2 p-4 transition-all hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-ambient"
+              >
+                <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-gold/30 bg-primary/10 text-lg font-bold text-primary">
+                  {m.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={m.avatarUrl} alt={m.name} className="h-full w-full object-cover" />
+                  ) : (
+                    initials(m.name)
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-serif text-base font-bold text-ink">
+                    {m.name}
+                    {m.isDeceased && <span className="font-normal text-muted"> (alm)</span>}
+                  </p>
+                  <p className="text-[11px] uppercase tracking-wider text-secondary">{m.role}</p>
+                  {m.birthInfo && (
+                    <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted">
+                      <IconCalendar className="h-3 w-3" /> {m.birthInfo}
+                    </p>
+                  )}
+                  <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-muted">
+                    {m.bio ?? <span className="italic opacity-70">Belum ada bio singkat.</span>}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      </Reveal>
 
       {/* Anak */}
       {fam.children.length > 0 && (
-        <Reveal delay={120} className="mt-6">
+        <Reveal delay={160} className="mt-6">
           <section className="rounded-3xl border border-edge bg-surface p-6 shadow-ambient md:p-8">
             <h2 className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted">
               <IconUsers className="h-4 w-4" /> Anak ({fam.children.length})
@@ -103,7 +125,7 @@ export default async function FamilyPage({ params }: { params: Promise<{ id: str
             <ul className="grid gap-3 sm:grid-cols-2">
               {fam.children.map((c) => (
                 <li key={c.id}>
-                  <Link href={`/anggota/${c.id}`} className="group flex items-center gap-3 rounded-2xl border border-edge bg-surface-2 px-4 py-3 transition-all hover:border-gold/40 hover:bg-primary/5">
+                  <Link href={`/anggota/${c.id}`} className="group flex items-start gap-3 rounded-2xl border border-edge bg-surface-2 px-4 py-3 transition-all hover:border-gold/40 hover:bg-primary/5">
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gold/25 bg-primary/10 text-sm font-semibold text-primary">
                       {c.avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -119,8 +141,9 @@ export default async function FamilyPage({ params }: { params: Promise<{ id: str
                         {c.isDeceased && <span className="font-normal text-muted"> (alm)</span>}
                       </span>
                       {c.number && <span className="block text-[10px] tracking-wider text-secondary">{c.number}</span>}
+                      {c.bio && <span className="mt-1 line-clamp-2 block text-xs text-muted">{c.bio}</span>}
                     </span>
-                    <IconArrowRight className="h-4 w-4 shrink-0 text-muted transition-transform group-hover:translate-x-1 group-hover:text-primary" />
+                    <IconArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted transition-transform group-hover:translate-x-1 group-hover:text-primary" />
                   </Link>
                 </li>
               ))}

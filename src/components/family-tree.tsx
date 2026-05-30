@@ -12,7 +12,7 @@ import { IconZoomIn, IconZoomOut, IconExpand, IconSearch, IconClose, IconHeart }
 
 const MIN = 0.2;
 const MAX = 2.8;
-const SPOUSE_RESERVE = 232;
+const SPOUSE_RESERVE = 248;
 const clamp = (v: number, min = MIN, max = MAX) => Math.min(max, Math.max(min, v));
 
 type Flat = { id: string; number: string | null; name: string; partnerName: string | null };
@@ -212,9 +212,13 @@ export function FamilyTree({ roots }: { roots: TreeMember[] }) {
     "flex h-10 w-10 items-center justify-center rounded-xl border border-edge bg-surface-3 text-primary-deep shadow-ambient transition-all hover:border-gold/40 hover:text-primary active:scale-95";
 
   const renderNode = (m: TreeMember) => (
-    <li key={m.id} style={{ marginRight: m.partner ? SPOUSE_RESERVE : undefined }}>
-      <div className="relative inline-block">
-        {/* Kartu keturunan (anchor garis) */}
+    <li key={m.id}>
+      {/* Cadangan simetris kiri+kanan agar kotak tetap terpusat pada kartu
+          keturunan -> garis dari atas mendarat tepat di kartu keturunan, dan
+          pasangan di kanan tidak menumpuk saudara berikutnya. */}
+      <div className="inline-block" style={m.partner ? { paddingLeft: SPOUSE_RESERVE, paddingRight: SPOUSE_RESERVE } : undefined}>
+        <div className="relative inline-block">
+          {/* Kartu keturunan (anchor garis) */}
         <button
           type="button"
           data-mid={m.id}
@@ -248,17 +252,18 @@ export function FamilyTree({ roots }: { roots: TreeMember[] }) {
             <button
               type="button"
               onClick={() => go(`/anggota/${m.partner!.id}`)}
-              className="group flex w-[176px] flex-col items-center gap-1.5 rounded-2xl border border-dashed border-edge-strong bg-surface-2 px-3 py-3 text-center transition-all hover:-translate-y-0.5 hover:border-gold/45"
+              className="group flex w-[188px] flex-col items-center gap-2 rounded-2xl border border-edge bg-surface-3 px-4 py-4 text-center shadow-ambient transition-all hover:-translate-y-0.5 hover:border-gold/45 hover:shadow-ambient-lg"
             >
-              <Avatar name={m.partner.name} url={m.partner.avatarUrl} size="h-9 w-9" />
-              <span className="text-xs font-semibold leading-tight text-ink">
+              <Avatar name={m.partner.name} url={m.partner.avatarUrl} />
+              <span className="text-sm font-semibold leading-tight text-ink">
                 {m.partner.name}
                 {m.partner.isDeceased && <span className="font-normal text-muted"> (alm)</span>}
               </span>
-              <span className="text-[9px] uppercase tracking-wider text-muted">pasangan</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary">pasangan</span>
             </button>
           </div>
         )}
+        </div>
       </div>
       {m.children.length > 0 && <ul>{m.children.map(renderNode)}</ul>}
     </li>

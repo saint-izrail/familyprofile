@@ -136,8 +136,9 @@ export type FamilyData = {
   number: string | null;
   familyPhotoUrl: string | null;
   bio: string | null;
-  members: { id: string; name: string; isDeceased: boolean; avatarUrl: string | null; role: "Suami/Istri" | "Pasangan" }[];
-  children: { id: string; name: string; number: string | null; avatarUrl: string | null; isDeceased: boolean; spouseName: string | null }[];
+  birthInfo: string | null;
+  members: { id: string; name: string; isDeceased: boolean; avatarUrl: string | null; role: string; bio: string | null; birthInfo: string | null }[];
+  children: { id: string; name: string; number: string | null; avatarUrl: string | null; isDeceased: boolean; spouseName: string | null; bio: string | null }[];
 };
 
 export async function getFamily(anyId: string): Promise<FamilyData | null> {
@@ -146,21 +147,21 @@ export async function getFamily(anyId: string): Promise<FamilyData | null> {
   const anchorId = base.marriedIn && base.partnerId ? base.partnerId : base.id;
   const anchor = await prisma.member.findUnique({
     where: { id: anchorId },
-    include: { partner: { select: { id: true, name: true, isDeceased: true, avatarUrl: true } } },
+    include: { partner: { select: { id: true, name: true, isDeceased: true, avatarUrl: true, bio: true, birthInfo: true } } },
   });
   if (!anchor) return null;
 
   const members: FamilyData["members"] = [
-    { id: anchor.id, name: anchor.name, isDeceased: anchor.isDeceased, avatarUrl: anchor.avatarUrl, role: "Suami/Istri" },
+    { id: anchor.id, name: anchor.name, isDeceased: anchor.isDeceased, avatarUrl: anchor.avatarUrl, role: "Kepala / Keturunan", bio: anchor.bio, birthInfo: anchor.birthInfo },
   ];
   if (anchor.partner) {
-    members.push({ id: anchor.partner.id, name: anchor.partner.name, isDeceased: anchor.partner.isDeceased, avatarUrl: anchor.partner.avatarUrl, role: "Pasangan" });
+    members.push({ id: anchor.partner.id, name: anchor.partner.name, isDeceased: anchor.partner.isDeceased, avatarUrl: anchor.partner.avatarUrl, role: "Pasangan", bio: anchor.partner.bio, birthInfo: anchor.partner.birthInfo });
   }
 
   const children = await prisma.member.findMany({
     where: { parentId: anchorId },
     orderBy: [{ order: "asc" }, { createdAt: "asc" }],
-    select: { id: true, name: true, number: true, avatarUrl: true, isDeceased: true, spouseName: true },
+    select: { id: true, name: true, number: true, avatarUrl: true, isDeceased: true, spouseName: true, bio: true },
   });
 
   return {
@@ -168,6 +169,7 @@ export async function getFamily(anyId: string): Promise<FamilyData | null> {
     number: anchor.number,
     familyPhotoUrl: anchor.familyPhotoUrl,
     bio: anchor.bio,
+    birthInfo: anchor.birthInfo,
     members,
     children,
   };
