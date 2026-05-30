@@ -160,4 +160,94 @@ export async function getAllForAdmin(): Promise<AdminMember[]> {
   }));
 }
 
+export type Crumb = { id: string; name: string; spouseName: string | null; number: string | null };
+
+// Jalur leluhur dari akar -> anggota (untuk breadcrumb).
+export async function getAncestry(id: string): Promise<Crumb[]> {
+  const all = await prisma.member.findMany({
+    select: { id: true, name: true, spouseName: true, number: true, parentId: true },
+  });
+  const map = new Map(all.map((m) => [m.id, m]));
+  const path: Crumb[] = [];
+  let cur = map.get(id);
+  let guard = 0;
+  while (cur && guard++ < 50) {
+    path.unshift({ id: cur.id, name: cur.name, spouseName: cur.spouseName, number: cur.number });
+    cur = cur.parentId ? map.get(cur.parentId) : undefined;
+  }
+  return path;
+}
+
+export type SiblingMember = {
+  id: string;
+  name: string;
+  spouseName: string | null;
+  number: string | null;
+  avatarUrl: string | null;
+  isDeceased: boolean;
+};
+
+export async function getSiblings(id: string, parentId: string | null): Promise<SiblingMember[]> {
+  if (!parentId) return [];
+  return prisma.member.findMany({
+    where: { parentId, NOT: { id } },
+    orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+    select: { id: true, name: true, spouseName: true, number: true, avatarUrl: true, isDeceased: true },
+  });
+}
+
+export type FamilyStat = { id: string; name: string; spouseName: string | null; count: number };
+export type Stats = {
+  total: number;
+  deceased: number;
+  couples: number;
+  generations: number;
+  families: FamilyStat[];
+  rootName: string | null;
+};
+
+export async function getStats(): Promise<Stats> {
+  const tree = await getTree();
+  const root = tree[0] ?? null;
+  let total = 0;
+  let deceased = 0;
+  let couples = 0;
+  let maxDepth = 0;
+  const walk = (n: TreeMember, d: number) => {
+    total++;
+    if (n.isDeceased) deceased++;
+    if (n.spouseName) couples++;
+    maxDepth = Math.max(maxDepth, d);
+    for (const c of n.children) walk(c, d + 1);
+  };
+  for (const r of tree) walk(r, 0);
+  const families: FamilyStat[] = (root?.children ?? []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    spouseName: c.spouseName,
+    count: countNodes([c]),
+  }));
+  return { total, deceased, couples, generations: maxDepth + 1, families, rootName: root?.name ?? null };
+}
+
+function countNodes(nodes: TreeMember[]): number {
+  return nodes.reduce((n, x) => n + 1 + countNodes(x.children), 0);
+}
+
+// Daftar datar untuk pencarian & kalkulator hubungan (id, nama, parent).
+export type FlatMember = {
+  id: string;
+  number: string | null;
+  name: string;
+  spouseName: string | null;
+  parentId: string | null;
+};
+
+export async function getFlatMembers(): Promise<FlatMember[]> {
+  return prisma.member.findMany({
+    orderBy: [{ number: "asc" }, { order: "asc" }],
+    select: { id: true, number: true, name: true, spouseName: true, parentId: true },
+  });
+}
+
 export type { MemberNode };
