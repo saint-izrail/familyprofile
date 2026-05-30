@@ -1,0 +1,54 @@
+// Skema database — pohon keluarga Bani Amenan Effendi & Siti Djamilah.
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Satu node = satu keturunan (boleh berpasangan: name + spouseName).
+// Hubungan pohon lewat parentId (self-relation). Anak diurutkan via `order`.
+model Member {
+  id             String  @id @default(uuid())
+  number         String? // label silsilah, mis. "3.6.5.1"
+  name           String
+  spouseName     String? // pasangan (jika berkeluarga) -> "X + Y"
+  isDeceased     Boolean @default(false) // alm.
+  spouseDeceased Boolean @default(false) // almh. pasangan
+  gender         String? // "L" | "P" | null
+  bio            String? // catatan / profil singkat
+  birthInfo      String? // tgl/tempat lahir (bebas format)
+  order          Int     @default(0) // urutan antar saudara
+
+  parentId String?
+  parent   Member?  @relation("Tree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Member[] @relation("Tree")
+
+  avatarUrl      String? // foto profil utama
+  familyPhotoUrl String? // foto keluarga (untuk node berkeluarga)
+  photos         Photo[] // galeri foto
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId])
+  @@map("members")
+}
+
+// Galeri foto per anggota (fleksibel — sebanyak yang diupload).
+model Photo {
+  id        String   @id @default(uuid())
+  memberId  String
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  url       String
+  caption   String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([memberId])
+  @@map("photos")
+}
