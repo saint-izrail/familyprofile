@@ -15,11 +15,12 @@ export async function POST(req: Request) {
   if (!name) {
     return NextResponse.json({ ok: false, message: "Nama wajib diisi." }, { status: 422 });
   }
+  const spouseName = str(b?.spouseName);
   try {
     const member = await prisma.member.create({
       data: {
         name,
-        spouseName: str(b?.spouseName),
+        spouseName,
         number: str(b?.number),
         parentId: str(b?.parentId),
         isDeceased: !!b?.isDeceased,
@@ -30,8 +31,17 @@ export async function POST(req: Request) {
         avatarUrl: str(b?.avatarUrl),
         familyPhotoUrl: str(b?.familyPhotoUrl),
         order: Number.isFinite(b?.order) ? Number(b.order) : 0,
+        marriedIn: false,
       },
     });
+
+    // Pasangan = anggota nyata (punya halaman sendiri), saling tertaut.
+    if (spouseName) {
+      const spouse = await prisma.member.create({
+        data: { name: spouseName, spouseName: name, marriedIn: true, partnerId: member.id, isDeceased: !!b?.spouseDeceased },
+      });
+      await prisma.member.update({ where: { id: member.id }, data: { partnerId: spouse.id } });
+    }
     return NextResponse.json({ ok: true, member });
   } catch (e) {
     return NextResponse.json({ ok: false, message: (e as Error).message }, { status: 500 });

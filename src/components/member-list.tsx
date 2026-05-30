@@ -18,12 +18,10 @@ function Row({ m, depth }: { m: TreeMember; depth: number }) {
         style={{ paddingLeft: `${depth * 1.4}rem` }}
         className="group flex items-baseline gap-2 rounded-lg py-1.5 pr-2 transition-colors hover:bg-primary/5"
       >
-        {m.number && (
-          <span className="shrink-0 font-mono text-xs text-muted">{m.number}</span>
-        )}
+        {m.number && <span className="shrink-0 font-mono text-xs text-muted">{m.number}</span>}
         <span className={`${cls} underline-offset-2 decoration-gold/50 group-hover:underline`}>
           {m.name}
-          {m.spouseName && ` + ${m.spouseName}`}
+          {m.partner && ` + ${m.partner.name}`}
           {m.isDeceased && <span className="font-normal text-muted"> (alm)</span>}
         </span>
       </Link>

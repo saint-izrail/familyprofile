@@ -4,16 +4,11 @@
 import { useId, useMemo, useState } from "react";
 import Link from "next/link";
 import { relationship } from "@/lib/relations";
+import type { FlatMember } from "@/lib/members";
 import { Reveal } from "@/components/reveal";
 import { IconArrowRight, IconHeart, IconSparkle, IconUser } from "@/components/icons";
 
-type Member = {
-  id: string;
-  number: string | null;
-  name: string;
-  spouseName: string | null;
-  parentId: string | null;
-};
+type Member = FlatMember;
 
 function memberLabel(m: Member): string {
   const prefix = m.number ? `${m.number} ` : "";

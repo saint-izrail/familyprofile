@@ -354,7 +354,7 @@ export function AdminDashboard({
               <select className={inp} value={form.parentId} onChange={(e) => set("parentId", e.target.value)}>
                 <option value="">— Akar (tanpa orang tua) —</option>
                 {members
-                  .filter((m) => m.id !== editing?.id)
+                  .filter((m) => m.id !== editing?.id && !m.marriedIn)
                   .map((m) => (
                     <option key={m.id} value={m.id}>
                       {labelOf.get(m.id)}
@@ -449,17 +449,22 @@ export function AdminDashboard({
               <li key={m.id} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-primary/[0.03]">
                 <span className="w-16 shrink-0 font-mono text-xs text-muted">{m.number ?? "—"}</span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-ink">
-                    {m.name}
-                    {m.spouseName && ` + ${m.spouseName}`}
-                    {m.isDeceased && <span className="text-muted"> (alm)</span>}
+                  <p className="flex items-center gap-2 truncate text-sm font-semibold text-ink">
+                    <span className="truncate">
+                      {m.name}
+                      {m.spouseName && ` + ${m.spouseName}`}
+                      {m.isDeceased && <span className="text-muted"> (alm)</span>}
+                    </span>
+                    {m.marriedIn && <span className="shrink-0 rounded-full border border-gold/30 bg-gold-soft/20 px-2 py-0.5 text-[10px] font-medium text-secondary">pasangan</span>}
                   </p>
                   {m.parentId && <p className="truncate text-xs text-muted">↳ {labelOf.get(m.parentId)}</p>}
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
-                  <button onClick={() => openCreate(m.id)} title="Tambah anak" className="rounded-lg border border-edge p-2 text-primary-deep hover:bg-primary/5">
-                    <IconPlus className="h-4 w-4" />
-                  </button>
+                  {!m.marriedIn && (
+                    <button onClick={() => openCreate(m.id)} title="Tambah anak" className="rounded-lg border border-edge p-2 text-primary-deep hover:bg-primary/5">
+                      <IconPlus className="h-4 w-4" />
+                    </button>
+                  )}
                   <button onClick={() => openEdit(m)} title="Edit" className="rounded-lg border border-edge p-2 text-primary-deep hover:bg-primary/5">
                     <IconEdit className="h-4 w-4" />
                   </button>

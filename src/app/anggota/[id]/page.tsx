@@ -28,10 +28,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     m = null;
   }
   if (!m) return { title: "Anggota tidak ditemukan" };
-  const name = m.spouseName ? `${m.name} & ${m.spouseName}` : m.name;
+  const name = m.partner ? `${m.name} & ${m.partner.name}` : m.name;
   const desc = m.bio ?? `Profil ${name} — keluarga besar Bani Amenan Effendi & Siti Djamilah.`;
   return {
-    title: `${name} — Bani Amenan Effendi`,
+    title: `${m.name} — Bani Amenan Effendi`,
     description: desc,
     openGraph: { title: name, description: desc, images: m.avatarUrl ? [m.avatarUrl] : undefined },
   };
@@ -49,24 +49,27 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
   if (!member) notFound();
 
   const [ancestry, siblings] = await Promise.all([
-    getAncestry(id).catch(() => []),
-    getSiblings(id, member.parentId).catch(() => []),
+    getAncestry(member.anchorId).catch(() => []),
+    getSiblings(member.anchorId, member.anchorParentId).catch(() => []),
   ]);
-  const trail = ancestry.slice(0, -1); // tanpa diri sendiri
-  const isCouple = !!member.spouseName;
-  const fullName = isCouple ? `${member.name} & ${member.spouseName}` : member.name;
+  const trail = ancestry.filter((c) => c.id !== member.id);
 
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-8 md:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href="/silsilah"
-          className="inline-flex items-center gap-2 text-sm font-medium text-muted transition-colors hover:text-primary-deep"
-        >
+        <Link href="/silsilah" className="inline-flex items-center gap-2 text-sm font-medium text-muted transition-colors hover:text-primary-deep">
           <IconArrowLeft className="h-4 w-4" />
           Kembali ke silsilah
         </Link>
-        <ShareButton title={`${fullName} — Bani Amenan Effendi`} />
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/keluarga/${member.anchorId}`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold-soft/20 px-4 py-2 text-sm font-medium text-secondary transition-colors hover:bg-gold/10"
+          >
+            <IconUsers className="h-4 w-4" /> Profil Keluarga
+          </Link>
+          <ShareButton title={`${member.name} — Bani Amenan Effendi`} />
+        </div>
       </div>
 
       {/* Breadcrumb leluhur */}
@@ -98,21 +101,26 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
               )}
             </span>
             <div className="min-w-0">
-              {member.number && (
-                <span className="inline-block rounded-full border border-gold/30 bg-gold-soft/30 px-3 py-0.5 text-xs font-semibold tracking-wider text-secondary">
-                  {member.number}
-                </span>
-              )}
+              <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
+                {member.number && (
+                  <span className="inline-block rounded-full border border-gold/30 bg-gold-soft/30 px-3 py-0.5 text-xs font-semibold tracking-wider text-secondary">
+                    {member.number}
+                  </span>
+                )}
+                {member.marriedIn && (
+                  <span className="inline-block rounded-full border border-edge bg-surface-2 px-3 py-0.5 text-xs font-medium text-muted">menikah ke dalam keluarga</span>
+                )}
+              </div>
               <h1 className="mt-2 font-serif text-3xl font-extrabold text-ink md:text-4xl">
                 {member.name}
                 {member.isDeceased && <span className="ml-2 align-middle text-base font-normal text-muted">(alm)</span>}
               </h1>
-              {isCouple && (
-                <p className="mt-1 inline-flex items-center gap-1.5 text-lg text-primary-deep">
+              {member.partner && (
+                <Link href={`/anggota/${member.partner.id}`} className="mt-1 inline-flex items-center gap-1.5 text-lg text-primary-deep transition-colors hover:text-primary">
                   <IconHeart className="h-4 w-4 text-secondary" />
-                  {member.spouseName}
-                  {member.spouseDeceased && <span className="text-muted"> (almh)</span>}
-                </p>
+                  {member.partner.name}
+                  {member.partner.isDeceased && <span className="text-muted"> (alm)</span>}
+                </Link>
               )}
               {member.birthInfo && (
                 <p className="mt-3 inline-flex items-center gap-1.5 text-sm text-muted">
@@ -143,12 +151,12 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
         </Reveal>
       )}
 
-      {/* Hubungan: orang tua + saudara */}
+      {/* Orang tua + saudara */}
       <div className="mt-6 grid gap-6 md:grid-cols-2">
         {member.parent && (
           <Reveal delay={120}>
             <RelCard title="Orang Tua" icon={<IconUser className="h-4 w-4" />}>
-              <RelLink href={`/anggota/${member.parent.id}`} label={`${member.parent.name}${member.parent.spouseName ? ` & ${member.parent.spouseName}` : ""}`} />
+              <RelLink href={`/anggota/${member.parent.id}`} label={member.parent.name} />
             </RelCard>
           </Reveal>
         )}
@@ -210,34 +218,16 @@ function RelCard({ title, icon, children }: { title: string; icon: React.ReactNo
 
 function RelLink({ href, label }: { href: string; label: string }) {
   return (
-    <Link
-      href={href}
-      className="group flex items-center justify-between rounded-2xl border border-edge bg-surface-2 px-4 py-3 transition-all hover:border-gold/40 hover:bg-primary/5"
-    >
+    <Link href={href} className="group flex items-center justify-between rounded-2xl border border-edge bg-surface-2 px-4 py-3 transition-all hover:border-gold/40 hover:bg-primary/5">
       <span className="font-semibold text-ink">{label}</span>
       <IconArrowRight className="h-4 w-4 text-muted transition-transform group-hover:translate-x-1 group-hover:text-primary" />
     </Link>
   );
 }
 
-function PersonRow({
-  id,
-  name,
-  spouseName,
-  avatarUrl,
-  isDeceased,
-}: {
-  id: string;
-  name: string;
-  spouseName: string | null;
-  avatarUrl: string | null;
-  isDeceased: boolean;
-}) {
+function PersonRow({ id, name, spouseName, avatarUrl, isDeceased }: { id: string; name: string; spouseName: string | null; avatarUrl: string | null; isDeceased: boolean }) {
   return (
-    <Link
-      href={`/anggota/${id}`}
-      className="group flex items-center gap-3 rounded-2xl border border-edge bg-surface-2 px-4 py-2.5 transition-all hover:border-gold/40 hover:bg-primary/5"
-    >
+    <Link href={`/anggota/${id}`} className="group flex items-center gap-3 rounded-2xl border border-edge bg-surface-2 px-4 py-2.5 transition-all hover:border-gold/40 hover:bg-primary/5">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gold/25 bg-primary/10 text-xs font-semibold text-primary">
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element

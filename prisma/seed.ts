@@ -164,20 +164,39 @@ const ROOT: Node = {
 };
 
 async function insertNode(node: Node, parentId: string | null, order: number) {
-  const created = await prisma.member.create({
+  // Anggota garis keturunan (blood descendant)
+  const desc = await prisma.member.create({
     data: {
       number: node.number,
       name: node.name,
-      spouseName: node.spouseName ?? null,
+      spouseName: node.spouseName ?? null, // denormalized untuk tampilan ringkas
       isDeceased: node.isDeceased ?? false,
       spouseDeceased: node.spouseDeceased ?? false,
       parentId,
       order,
+      marriedIn: false,
     },
   });
+
+  // Pasangan sebagai anggota nyata (punya halaman sendiri), saling tertaut.
+  if (node.spouseName) {
+    const spouse = await prisma.member.create({
+      data: {
+        name: node.spouseName,
+        spouseName: node.name,
+        isDeceased: node.spouseDeceased ?? false,
+        spouseDeceased: node.isDeceased ?? false,
+        marriedIn: true,
+        order: 0,
+        partnerId: desc.id,
+      },
+    });
+    await prisma.member.update({ where: { id: desc.id }, data: { partnerId: spouse.id } });
+  }
+
   let i = 0;
   for (const child of node.children ?? []) {
-    await insertNode(child, created.id, i++);
+    await insertNode(child, desc.id, i++);
   }
 }
 

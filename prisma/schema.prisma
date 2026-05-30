@@ -28,6 +28,13 @@ model Member {
   parent   Member?  @relation("Tree", fields: [parentId], references: [id], onDelete: SetNull)
   children Member[] @relation("Tree")
 
+  // Pasangan = anggota nyata (punya halaman sendiri). marriedIn=true untuk yang
+  // "menikah masuk" (bukan garis keturunan langsung). Kedua pasangan saling menunjuk.
+  marriedIn Boolean @default(false)
+  partnerId String? @unique
+  partner   Member? @relation("Marriage", fields: [partnerId], references: [id], onDelete: SetNull)
+  partnerBy Member? @relation("Marriage")
+
   avatarUrl      String? // foto profil utama
   familyPhotoUrl String? // foto keluarga (untuk node berkeluarga)
   photos         Photo[] // galeri foto
