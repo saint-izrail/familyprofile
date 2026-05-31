@@ -310,3 +310,20 @@ export async function getAllForAdmin(): Promise<AdminMember[]> {
 export async function getRoot() {
   return prisma.member.findFirst({ where: { parentId: null, marriedIn: false }, orderBy: { order: "asc" } });
 }
+
+// Foto-foto untuk carousel beranda = galeri anggota akar (Amenan Effendi).
+// Bila galeri kosong, pakai foto keluarga / avatar sebagai cadangan.
+export async function getLandingPhotos(): Promise<{ url: string; caption: string | null }[]> {
+  const root = await prisma.member.findFirst({
+    where: { parentId: null, marriedIn: false },
+    orderBy: { order: "asc" },
+    include: { photos: { orderBy: { order: "asc" } } },
+  });
+  if (!root) return [];
+  const list = root.photos.map((p) => ({ url: p.url, caption: p.caption }));
+  if (list.length === 0) {
+    if (root.familyPhotoUrl) list.push({ url: root.familyPhotoUrl, caption: null });
+    else if (root.avatarUrl) list.push({ url: root.avatarUrl, caption: null });
+  }
+  return list;
+}

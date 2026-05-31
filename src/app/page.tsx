@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { getTree, type TreeMember } from "@/lib/members";
+import { getTree, getLandingPhotos, type TreeMember } from "@/lib/members";
 import { Reveal } from "@/components/reveal";
 import { BackgroundFX } from "@/components/background-fx";
+import { HeroCarousel } from "@/components/hero-carousel";
 import { IconTree, IconList, IconUsers, IconHeart, IconArrowRight, IconSparkle } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,12 @@ export default async function HomePage() {
     tree = await getTree();
   } catch {
     failed = true;
+  }
+  let photos: { url: string; caption: string | null }[] = [];
+  try {
+    photos = await getLandingPhotos();
+  } catch {
+    /* abaikan */
   }
   const root = tree[0] ?? null;
   const families = root?.children.length ?? 0;
@@ -74,25 +81,26 @@ export default async function HomePage() {
           </div>
         </Reveal>
 
-        {/* Foto keluarga */}
+        {/* Foto keluarga (carousel auto-geser) */}
         <Reveal delay={400} className="mt-14 w-full">
-          <figure className="relative mx-auto aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-3xl border border-gold/25 bg-surface ring-glow">
-            {root?.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={root.avatarUrl} alt="Foto keluarga besar" className="h-full w-full object-cover" />
+          <div className="mx-auto w-full max-w-4xl">
+            {photos.length > 0 ? (
+              <HeroCarousel photos={photos} />
             ) : (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-primary/10 via-surface to-gold/10 text-center">
-                <span className="flex h-16 w-16 items-center justify-center rounded-full border border-gold/30 bg-primary/10 text-primary">
-                  <IconTree className="h-8 w-8" />
-                </span>
-                <p className="font-serif text-lg text-primary-deep">Foto keluarga besar</p>
-                <p className="max-w-xs text-xs text-muted">
-                  Foto bersama akan tampil di sini — dapat diatur melalui halaman admin.
-                </p>
-              </div>
+              <figure className="relative aspect-[16/9] w-full overflow-hidden rounded-3xl border border-gold/25 bg-surface ring-glow">
+                <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-primary/10 via-surface to-gold/10 text-center">
+                  <span className="flex h-16 w-16 items-center justify-center rounded-full border border-gold/30 bg-primary/10 text-primary">
+                    <IconTree className="h-8 w-8" />
+                  </span>
+                  <p className="font-serif text-lg text-primary-deep">Foto keluarga besar</p>
+                  <p className="max-w-xs text-xs text-muted">
+                    Tambahkan foto lewat admin (edit &ldquo;Amenan Effendi&rdquo; → Galeri) — akan tampil bergiliran di sini.
+                  </p>
+                </div>
+                <div aria-hidden className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/10" />
+              </figure>
             )}
-            <div aria-hidden className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/10" />
-          </figure>
+          </div>
         </Reveal>
 
         {/* Statistik */}

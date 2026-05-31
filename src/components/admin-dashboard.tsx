@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AdminMember } from "@/lib/members";
 import { BrandMark } from "@/components/brand-mark";
+import { ImageCropper } from "@/components/image-cropper";
 import {
   IconPlus,
   IconEdit,
@@ -50,24 +51,35 @@ function ImageInput({
   onChange,
   folder,
   storageOn,
+  aspect,
 }: {
   label: string;
   value: string;
   onChange: (url: string) => void;
   folder: string;
   storageOn: boolean;
+  aspect: number;
 }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+  // Pilih file -> buka cropper (geser/zoom) -> upload hasil crop.
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    e.target.value = "";
+    if (file) {
+      setErr(null);
+      setCropFile(file);
+    }
+  }
+
+  async function uploadBlob(blob: Blob) {
     setErr(null);
     setBusy(true);
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", blob, "photo.jpg");
       fd.append("folder", folder);
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       const json = await res.json().catch(() => null);
@@ -115,6 +127,17 @@ function ImageInput({
         )}
       </div>
       {err && <p className="ml-1 text-xs text-danger">{err}</p>}
+      {cropFile && (
+        <ImageCropper
+          file={cropFile}
+          aspect={aspect}
+          onCancel={() => setCropFile(null)}
+          onDone={(b) => {
+            setCropFile(null);
+            uploadBlob(b);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -384,10 +407,10 @@ export function AdminDashboard({
               )}
             </div>
             <div className="sm:col-span-1">
-              <ImageInput label="Foto profil" value={form.avatarUrl} onChange={(v) => set("avatarUrl", v)} folder="avatars" storageOn={storageOn} />
+              <ImageInput label="Foto profil" value={form.avatarUrl} onChange={(v) => set("avatarUrl", v)} folder="avatars" storageOn={storageOn} aspect={1} />
             </div>
             <div className="sm:col-span-1">
-              <ImageInput label="Foto keluarga" value={form.familyPhotoUrl} onChange={(v) => set("familyPhotoUrl", v)} folder="family" storageOn={storageOn} />
+              <ImageInput label="Foto keluarga" value={form.familyPhotoUrl} onChange={(v) => set("familyPhotoUrl", v)} folder="family" storageOn={storageOn} aspect={16 / 9} />
             </div>
 
             {error && <p className="text-sm text-danger sm:col-span-2">{error}</p>}
@@ -428,7 +451,7 @@ export function AdminDashboard({
                   placeholder="Keterangan foto (opsional)"
                   className="w-full rounded-lg border border-edge bg-surface-3 px-3 py-1.5 text-xs text-ink outline-none focus:border-primary-dark"
                 />
-                <ImageInput label="Tambah foto galeri" value="" onChange={(url) => addGalleryUrl(url)} folder="gallery" storageOn={storageOn} />
+                <ImageInput label="Tambah foto galeri" value="" onChange={(url) => addGalleryUrl(url)} folder="gallery" storageOn={storageOn} aspect={16 / 9} />
                 {galBusy && <p className="text-xs text-muted">Menambah...</p>}
               </div>
             </div>
