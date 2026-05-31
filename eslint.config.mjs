@@ -12,7 +12,16 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated Prisma client (gitignored) — not our code to lint.
+    "src/generated/**",
   ]),
+  {
+    rules: {
+      // Mount-time sinkronisasi state dari DOM/eksternal (tema, IntersectionObserver,
+      // objectURL) adalah pola sah di sini — turunkan dari error ke peringatan.
+      "react-hooks/set-state-in-effect": "warn",
+    },
+  },
 ]);
 
 export default eslintConfig;

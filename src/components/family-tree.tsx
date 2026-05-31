@@ -226,6 +226,9 @@ export function FamilyTree({ roots }: { roots: TreeMember[] }) {
     const el = wrapRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
+      // Hanya zoom saat Ctrl/⌘ ditahan (atau pinch trackpad yang mengirim ctrlKey)
+      // — selain itu biarkan halaman menggulir normal.
+      if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       const r = el.getBoundingClientRect();
       zoomAt(e.deltaY < 0 ? 1.12 : 0.89, e.clientX - r.left, e.clientY - r.top);
@@ -308,6 +311,22 @@ export function FamilyTree({ roots }: { roots: TreeMember[] }) {
     }
   }
 
+  // Kontrol keyboard: panah menggeser, +/- memperbesar, 0/Home atur ulang.
+  function onKeyDown(e: React.KeyboardEvent) {
+    const target = e.target as HTMLElement;
+    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+    const PAN = 64;
+    switch (e.key) {
+      case "ArrowLeft": e.preventDefault(); setTx((t) => t + PAN); break;
+      case "ArrowRight": e.preventDefault(); setTx((t) => t - PAN); break;
+      case "ArrowUp": e.preventDefault(); setTy((t) => t + PAN); break;
+      case "ArrowDown": e.preventDefault(); setTy((t) => t - PAN); break;
+      case "+": case "=": e.preventDefault(); btnZoom(1.25); break;
+      case "-": case "_": e.preventDefault(); btnZoom(0.8); break;
+      case "0": case "Home": e.preventDefault(); reset(); break;
+    }
+  }
+
   const ctlCls =
     "flex h-10 w-10 items-center justify-center rounded-xl border border-edge bg-surface-3 text-primary-deep shadow-ambient transition-all hover:border-gold/40 hover:text-primary active:scale-95";
 
@@ -334,6 +353,10 @@ export function FamilyTree({ roots }: { roots: TreeMember[] }) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onKeyDown={onKeyDown}
+        tabIndex={0}
+        role="application"
+        aria-label="Pohon silsilah interaktif — panah untuk menggeser, plus/minus untuk memperbesar, Enter pada kartu untuk membuka profil"
         className={`relative w-full touch-none overflow-hidden border border-edge bg-surface/50 ring-glow ${fs ? "h-screen rounded-none" : "h-[74vh] min-h-[460px] rounded-3xl"}`}
         style={{ touchAction: "none" }}
       >
@@ -343,7 +366,7 @@ export function FamilyTree({ roots }: { roots: TreeMember[] }) {
           style={{ transform: `translate(${tx}px, ${ty}px) scale(${scale})`, transformOrigin: "0 0", transition: animating ? "transform 0.45s cubic-bezier(0.2,0.7,0.2,1)" : "none" }}
         >
           <svg width={width} height={height} className="pointer-events-none absolute left-0 top-0 overflow-visible">
-            <g fill="none" strokeWidth={2} style={{ stroke: "color-mix(in srgb, var(--gold) 55%, transparent)" }} strokeLinecap="round">
+            <g fill="none" strokeWidth={2} style={{ stroke: "color-mix(in srgb, var(--gold) 55%, transparent)" }} strokeLinecap="round" strokeLinejoin="round">
               {segments.map((s, i) => (
                 <line key={i} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} />
               ))}
@@ -360,9 +383,14 @@ export function FamilyTree({ roots }: { roots: TreeMember[] }) {
                   type="button"
                   data-mid={m.id}
                   onClick={() => go(`/anggota/${m.id}`)}
+                  onFocus={() => centerOn(l.cx, l.y + CARD_H / 2)}
                   style={{ left: dx, top: l.y, width: CARD_W, height: CARD_H }}
-                  className={`absolute flex flex-col items-center justify-center gap-1.5 rounded-2xl border bg-surface-3 px-4 text-center transition-colors ${
-                    highlightId === m.id ? "border-gold ring-2 ring-gold glow-primary" : "border-edge shadow-ambient hover:border-gold/45"
+                  className={`absolute flex flex-col items-center justify-center gap-1.5 rounded-2xl border bg-gradient-to-b from-surface-3 to-surface px-4 text-center ring-1 ring-inset ring-gold/10 transition-all hover:-translate-y-0.5 hover:shadow-ambient-lg ${
+                    highlightId === m.id
+                      ? "border-gold ring-2 ring-gold glow-primary"
+                      : l.y === 0
+                        ? "border-gold/40 shadow-ambient glow-primary hover:border-gold/60"
+                        : "border-edge shadow-ambient hover:border-gold/45"
                   }`}
                 >
                   <CardAvatar name={m.name} url={m.avatarUrl} />
@@ -388,8 +416,9 @@ export function FamilyTree({ roots }: { roots: TreeMember[] }) {
                     <button
                       type="button"
                       onClick={() => go(`/anggota/${m.partner!.id}`)}
+                      onFocus={() => centerOn(l.cx, l.y + CARD_H / 2)}
                       style={{ left: l.cx + CARD_W / 2 + SPOUSE_GAP, top: l.y, width: SPOUSE_W, height: CARD_H }}
-                      className="absolute flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-edge bg-surface-3 px-4 text-center shadow-ambient transition-colors hover:border-gold/45"
+                      className="absolute flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-edge bg-gradient-to-b from-surface-3 to-surface px-4 text-center shadow-ambient ring-1 ring-inset ring-gold/10 transition-all hover:-translate-y-0.5 hover:border-gold/45 hover:shadow-ambient-lg"
                     >
                       <CardAvatar name={m.partner.name} url={m.partner.avatarUrl} />
                       <span className="line-clamp-2 text-sm font-semibold leading-tight text-ink">
@@ -449,7 +478,7 @@ export function FamilyTree({ roots }: { roots: TreeMember[] }) {
         </div>
 
         <p className="absolute bottom-4 left-4 rounded-full border border-edge bg-surface/70 px-3 py-1 text-[11px] text-muted backdrop-blur">
-          Ketuk kartu untuk profil · seret untuk geser · cubit / scroll untuk zoom
+          Ketuk kartu untuk profil · seret/panah untuk geser · cubit / Ctrl+scroll untuk zoom
         </p>
       </div>
     </div>
@@ -458,7 +487,7 @@ export function FamilyTree({ roots }: { roots: TreeMember[] }) {
 
 function CardAvatar({ name, url }: { name: string; url: string | null }) {
   return (
-    <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-gold/30 bg-primary/10 text-xs font-semibold text-primary">
+    <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-gold/30 bg-primary/15 text-xs font-semibold text-primary-deep">
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt="" className="h-full w-full object-cover" />

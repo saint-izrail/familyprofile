@@ -1,13 +1,17 @@
 "use client";
 
 // Galeri foto dengan lightbox: klik thumbnail -> tampilan penuh + navigasi.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { useModal, isTopmost } from "@/components/use-modal";
 import { IconClose, IconArrowLeft, IconArrowRight } from "@/components/icons";
 
 type Photo = { id: string; url: string; caption: string | null };
 
 export function PhotoLightbox({ photos }: { photos: Photo[] }) {
   const [open, setOpen] = useState<number | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const modalToken = useModal(open !== null, dialogRef);
 
   const close = useCallback(() => setOpen(null), []);
   const go = useCallback(
@@ -18,13 +22,14 @@ export function PhotoLightbox({ photos }: { photos: Photo[] }) {
   useEffect(() => {
     if (open === null) return;
     const onKey = (e: KeyboardEvent) => {
+      if (!isTopmost(modalToken)) return; // jangan rebut key dari modal di atasnya
       if (e.key === "Escape") close();
       else if (e.key === "ArrowRight") go(1);
       else if (e.key === "ArrowLeft") go(-1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, close, go]);
+  }, [open, close, go, modalToken]);
 
   if (photos.length === 0) return null;
 
@@ -39,8 +44,15 @@ export function PhotoLightbox({ photos }: { photos: Photo[] }) {
             className="group overflow-hidden rounded-2xl border border-edge bg-surface-2 text-left transition-all hover:border-gold/40 hover:shadow-ambient"
             aria-label={`Buka foto ${i + 1}`}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.url} alt={p.caption ?? ""} className="aspect-square w-full object-cover transition-transform group-hover:scale-105" />
+            <span className="relative block aspect-square w-full overflow-hidden">
+              <Image
+                src={p.url}
+                alt={p.caption ?? ""}
+                fill
+                sizes="(max-width: 640px) 50vw, 33vw"
+                className="object-cover transition-transform group-hover:scale-105"
+              />
+            </span>
             {p.caption && <span className="block px-3 py-1.5 text-center text-[11px] text-muted">{p.caption}</span>}
           </button>
         ))}
@@ -48,6 +60,7 @@ export function PhotoLightbox({ photos }: { photos: Photo[] }) {
 
       {open !== null && (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-label="Pratinjau foto"

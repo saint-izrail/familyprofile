@@ -4,9 +4,9 @@ import { Reveal } from "@/components/reveal";
 import { BackgroundFX } from "@/components/background-fx";
 import { HeroCarousel } from "@/components/hero-carousel";
 import { SuggestButton } from "@/components/suggest-button";
-import { IconTree, IconList, IconUsers, IconHeart, IconArrowRight, IconSparkle } from "@/components/icons";
+import { IconTree, IconList, IconUsers, IconHeart, IconArrowRight, IconSparkle, IconUpload } from "@/components/icons";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 function countNodes(nodes: TreeMember[]): number {
   return nodes.reduce((n, x) => n + 1 + countNodes(x.children), 0);
@@ -137,10 +137,11 @@ export default async function HomePage() {
 
       {/* Jelajahi */}
       <section className="mx-auto w-full max-w-6xl px-5 py-10">
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {[
             { href: "/silsilah", icon: IconTree, title: "Pohon Silsilah", desc: "Telusuri seluruh keturunan dalam tampilan pohon yang bisa di-zoom & digeser." },
             { href: "/daftar", icon: IconList, title: "Daftar Lengkap", desc: "Lihat seluruh anggota dalam format daftar bertingkat yang rapi." },
+            { href: "/kirim-foto", icon: IconUpload, title: "Kirim Foto", desc: "Bagikan foto kenangan keluarga — tampil setelah disetujui admin." },
           ].map((c) => {
             const Icon = c.icon;
             return (

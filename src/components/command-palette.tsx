@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { initials } from "@/lib/format";
+import { useModal, isTopmost } from "@/components/use-modal";
 import { IconSearch, IconClose, IconUser, IconArrowRight } from "@/components/icons";
 
 type Result = {
@@ -25,6 +26,10 @@ export function CommandPalette() {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Kunci scroll + perangkap fokus + kembalikan fokus ke pemicu.
+  const modalToken = useModal(open, dialogRef);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -39,14 +44,14 @@ export function CommandPalette() {
       if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
         setOpen((v) => !v);
-      } else if (e.key === "Escape" && open) {
+      } else if (e.key === "Escape" && open && isTopmost(modalToken)) {
         e.preventDefault();
         close();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, close]);
+  }, [open, close, modalToken]);
 
   // Fokuskan input saat dibuka.
   useEffect(() => {
@@ -54,16 +59,6 @@ export function CommandPalette() {
       const id = requestAnimationFrame(() => inputRef.current?.focus());
       return () => cancelAnimationFrame(id);
     }
-  }, [open]);
-
-  // Kunci scroll latar saat modal terbuka.
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
   }, [open]);
 
   // Debounce pencarian (~200ms).
@@ -134,17 +129,17 @@ export function CommandPalette() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Buka pencarian"
-        className="flex items-center gap-2 rounded-full border border-edge bg-surface-2 px-3 py-2 text-sm text-muted transition-colors hover:border-edge-strong hover:text-primary-deep"
+        className="flex items-center gap-2 rounded-full border border-edge bg-surface-2 px-2.5 py-2 text-sm text-muted transition-colors hover:border-edge-strong hover:text-primary-deep sm:px-3"
       >
         <IconSearch className="h-4 w-4" />
-        <span>Cari…</span>
+        <span className="hidden sm:inline">Cari…</span>
         <kbd className="ml-1 hidden rounded-md border border-edge bg-surface px-1.5 py-0.5 font-mono text-[11px] text-muted sm:inline">
           ⌘K
         </kbd>
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label="Pencarian anggota">
+        <div ref={dialogRef} className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label="Pencarian anggota">
           <button
             type="button"
             aria-label="Tutup pencarian"
@@ -161,8 +156,6 @@ export function CommandPalette() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onInputKeyDown}
-                // eslint-disable-next-line jsx-a11y/no-autofocus
-                autoFocus
                 placeholder="Cari nama anggota atau nomor…"
                 aria-label="Kata kunci pencarian"
                 aria-controls="cmd-results"

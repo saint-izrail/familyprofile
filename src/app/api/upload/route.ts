@@ -18,6 +18,9 @@ export async function POST(req: Request) {
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ ok: false, message: "File tidak ditemukan." }, { status: 400 });
   }
+  if (file.size > 8 * 1024 * 1024) {
+    return NextResponse.json({ ok: false, message: "Ukuran foto maksimal 8MB." }, { status: 400 });
+  }
   if (!file.type.startsWith("image/")) {
     return NextResponse.json({ ok: false, message: "File harus berupa gambar." }, { status: 400 });
   }

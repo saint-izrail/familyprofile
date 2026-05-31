@@ -1,6 +1,9 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { getStats, type Stats } from "@/lib/members";
 import { Reveal } from "@/components/reveal";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import {
   IconUsers,
   IconHeart,
@@ -9,7 +12,8 @@ import {
   IconArrowRight,
 } from "@/components/icons";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
+export const metadata: Metadata = { title: "Statistik" };
 
 type StatCard = {
   label: string;
@@ -29,35 +33,20 @@ export default async function StatistikPage() {
 
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-10">
-      <Reveal>
-        <header className="mb-10 text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-gold/30 bg-surface-2 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-secondary">
-            <IconSparkle className="h-3.5 w-3.5" />
-            Statistik Keluarga
-          </span>
-          <h1 className="mt-4 font-serif text-3xl font-extrabold md:text-5xl">
-            <span className="gold-text">Statistik Keluarga</span>
-          </h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm text-muted">
-            Ringkasan angka perjalanan keluarga besar kita lintas generasi.
-          </p>
-          <div className="divider-gold mx-auto mt-5 max-w-xs" />
-        </header>
-      </Reveal>
+      <PageHeader
+        eyebrow="Statistik Keluarga"
+        icon={IconSparkle}
+        title="Statistik Keluarga"
+        subtitle="Ringkasan angka perjalanan keluarga besar kita lintas generasi."
+      />
 
       {failed || !stats ? (
         <Reveal delay={80}>
-          <div className="rounded-3xl border border-edge bg-surface p-14 text-center shadow-ambient">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <IconSparkle className="h-8 w-8" />
-            </div>
-            <h2 className="mt-4 font-serif text-xl font-bold text-primary-deep">
-              Belum tersambung ke database
-            </h2>
-            <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-              Statistik akan tampil setelah konfigurasi database selesai.
-            </p>
-          </div>
+          <EmptyState
+            icon={IconSparkle}
+            title="Belum tersambung ke database"
+            description="Statistik akan tampil setelah konfigurasi database selesai."
+          />
         </Reveal>
       ) : (
         <StatistikContent stats={stats} />

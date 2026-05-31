@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { revalidatePublic } from "@/lib/revalidate";
 
-// Setujui usulan: terapkan perubahan sesuai jenis, lalu hapus dari antrian.
+// Setujui usulan: terapkan perubahan sesuai jenis lalu hapus dari antrian —
+// dalam SATU transaksi, sehingga approve ganda/berbarengan tak berlipat.
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!(await isAdmin())) {
     return NextResponse.json({ ok: false, message: "Tidak diizinkan." }, { status: 401 });
@@ -12,26 +14,36 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (!sub) return NextResponse.json({ ok: false, message: "Usulan tidak ditemukan." }, { status: 404 });
 
   try {
-    if (sub.kind === "galeri" && sub.memberId && sub.imageUrl) {
-      const count = await prisma.photo.count({ where: { memberId: sub.memberId } });
-      await prisma.photo.create({ data: { memberId: sub.memberId, url: sub.imageUrl, caption: sub.caption, order: count, approved: true } });
-    } else if (sub.kind === "foto-profil" && sub.memberId && sub.imageUrl) {
-      await prisma.member.update({ where: { id: sub.memberId }, data: { avatarUrl: sub.imageUrl } });
-    } else if (sub.kind === "foto-keluarga" && sub.memberId && sub.imageUrl) {
-      await prisma.member.update({ where: { id: sub.memberId }, data: { familyPhotoUrl: sub.imageUrl } });
-    } else if (sub.kind === "bio" && sub.memberId && sub.bio) {
-      await prisma.member.update({ where: { id: sub.memberId }, data: { bio: sub.bio } });
-    } else if (sub.kind === "agenda" && sub.title && sub.date) {
-      await prisma.event.create({
-        data: { title: sub.title, date: sub.date, type: sub.type ?? "acara", recurring: sub.recurring, description: sub.description, memberId: sub.memberId },
-      });
-    } else {
-      return NextResponse.json({ ok: false, message: "Usulan tidak lengkap." }, { status: 422 });
-    }
-    await prisma.submission.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      if (sub.kind === "galeri" && sub.memberId && sub.imageUrl) {
+        // Urutan dari max(order) (atomik di dalam transaksi), bukan count().
+        const last = await tx.photo.aggregate({ where: { memberId: sub.memberId }, _max: { order: true } });
+        const order = (last._max.order ?? -1) + 1;
+        await tx.photo.create({ data: { memberId: sub.memberId, url: sub.imageUrl, caption: sub.caption, order, approved: true } });
+      } else if (sub.kind === "foto-profil" && sub.memberId && sub.imageUrl) {
+        await tx.member.update({ where: { id: sub.memberId }, data: { avatarUrl: sub.imageUrl } });
+      } else if (sub.kind === "foto-keluarga" && sub.memberId && sub.imageUrl) {
+        await tx.member.update({ where: { id: sub.memberId }, data: { familyPhotoUrl: sub.imageUrl } });
+      } else if (sub.kind === "bio" && sub.memberId && sub.bio) {
+        await tx.member.update({ where: { id: sub.memberId }, data: { bio: sub.bio } });
+      } else if (sub.kind === "agenda" && sub.title && sub.date) {
+        await tx.event.create({
+          data: { title: sub.title, date: sub.date, type: sub.type ?? "acara", recurring: sub.recurring, description: sub.description, memberId: sub.memberId },
+        });
+      } else {
+        throw Object.assign(new Error("Usulan tidak lengkap."), { code: "INCOMPLETE" });
+      }
+      // Hapus terakhir: bila sudah dihapus (approve berbarengan) -> P2025 -> rollback.
+      await tx.submission.delete({ where: { id } });
+    });
+
+    revalidatePublic();
     return NextResponse.json({ ok: true });
   } catch (e) {
-    return NextResponse.json({ ok: false, message: (e as Error).message }, { status: 500 });
+    const err = e as { code?: string; message: string };
+    if (err.code === "INCOMPLETE") return NextResponse.json({ ok: false, message: err.message }, { status: 422 });
+    if (err.code === "P2025") return NextResponse.json({ ok: false, message: "Usulan sudah diproses." }, { status: 409 });
+    return NextResponse.json({ ok: false, message: err.message }, { status: 500 });
   }
 }
 

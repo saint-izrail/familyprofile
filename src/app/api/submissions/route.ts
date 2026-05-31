@@ -1,15 +1,33 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { uploadImage, storageConfigured } from "@/lib/storage";
+import { rateLimited, clientIp, badOrigin } from "@/lib/rate-limit";
 
 const PHOTO_KINDS = ["galeri", "foto-profil", "foto-keluarga"];
 const MAX = 8 * 1024 * 1024;
+const QUEUE_CEILING = 1000; // batas wajar antrian usulan agar tak banjir
 const s = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 const bad = (message: string, status = 422) => NextResponse.json({ ok: false, message }, { status });
+
+// Batas panjang teks (cegah payload raksasa).
+const LIMITS = { caption: 500, bio: 8000, title: 200, description: 4000, submittedBy: 120 } as const;
+function overLimit(b: Record<string, unknown> | FormData, key: keyof typeof LIMITS): boolean {
+  const v = b instanceof FormData ? b.get(key) : b[key];
+  return typeof v === "string" && v.length > LIMITS[key];
+}
 
 // Usulan PUBLIK -> masuk antrian (perlu approval admin). Multipart untuk jenis
 // foto; JSON untuk bio/agenda.
 export async function POST(req: Request) {
+  // Postur anti-CSRF + pembatas laju + plafon antrian.
+  if (badOrigin(req)) return bad("Origin tidak sah.", 403);
+  if (rateLimited(`submit:${clientIp(req)}`, 6, 10 * 60 * 1000)) {
+    return bad("Terlalu banyak kiriman. Coba lagi beberapa menit lagi.", 429);
+  }
+  if ((await prisma.submission.count()) >= QUEUE_CEILING) {
+    return bad("Antrian usulan sedang penuh. Coba lagi nanti.", 429);
+  }
+
   const ct = req.headers.get("content-type") || "";
 
   if (ct.includes("multipart/form-data")) {
@@ -23,6 +41,7 @@ export async function POST(req: Request) {
     if (file.size > MAX) return bad("Ukuran foto maksimal 8MB.", 400);
     if (!file.type.startsWith("image/")) return bad("File harus berupa gambar.", 400);
     if (!memberId) return bad("Pilih anggota tujuan.");
+    if (form && (overLimit(form, "caption") || overLimit(form, "submittedBy"))) return bad("Teks terlalu panjang.");
     const member = await prisma.member.findUnique({ where: { id: memberId }, select: { id: true } });
     if (!member) return bad("Anggota tidak ditemukan.", 404);
     try {
@@ -39,6 +58,10 @@ export async function POST(req: Request) {
   const b = await req.json().catch(() => ({}));
   const kind = String(b?.kind || "");
   const submittedBy = s(b?.submittedBy);
+
+  if (b && typeof b === "object" && (["bio", "title", "description", "submittedBy", "caption"] as const).some((k) => overLimit(b, k))) {
+    return bad("Teks terlalu panjang.");
+  }
 
   if (kind === "bio") {
     const memberId = s(b?.memberId);

@@ -107,6 +107,7 @@ export function SubmissionsAdmin({ submissions }: { submissions: SubmissionItem[
   // ID yang sudah ditangani -> disembunyikan secara optimistis.
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<Set<string>>(new Set());
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const visible = submissions.filter((s) => !hidden.has(s.id));
 
@@ -123,8 +124,22 @@ export function SubmissionsAdmin({ submissions }: { submissions: SubmissionItem[
     });
   }
 
+  function setError(id: string, msg: string | null) {
+    setErrors((prev) => {
+      const next = { ...prev };
+      if (msg) next[id] = msg;
+      else delete next[id];
+      return next;
+    });
+  }
+
   async function act(id: string, method: "POST" | "DELETE") {
     if (busy.has(id)) return;
+    // Tolak bersifat permanen -> minta konfirmasi (selaras hapus anggota/agenda).
+    if (method === "DELETE" && !window.confirm("Tolak & hapus usulan ini? Tindakan ini permanen.")) {
+      return;
+    }
+    setError(id, null);
     mark(setBusy, id, true);
     try {
       const res = await fetch(`/api/submissions/${id}`, { method });
@@ -133,11 +148,11 @@ export function SubmissionsAdmin({ submissions }: { submissions: SubmissionItem[
         mark(setHidden, id, true);
         router.refresh();
       } else {
-        window.alert(json?.message ?? "Gagal memproses usulan.");
+        setError(id, json?.message ?? "Gagal memproses usulan.");
         mark(setBusy, id, false);
       }
     } catch {
-      window.alert("Gagal terhubung ke server.");
+      setError(id, "Gagal terhubung ke server.");
       mark(setBusy, id, false);
     }
   }
@@ -258,6 +273,13 @@ export function SubmissionsAdmin({ submissions }: { submissions: SubmissionItem[
                     {s.submittedBy ?? "Anonim"}
                   </span>
                 </p>
+
+                {/* Galat inline (ganti window.alert) */}
+                {errors[s.id] && (
+                  <p role="alert" className="rounded-lg border border-danger/25 bg-danger/5 px-3 py-2 text-xs font-medium text-danger">
+                    {errors[s.id]}
+                  </p>
+                )}
 
                 {/* Aksi */}
                 <div className="mt-auto flex gap-2 pt-2">

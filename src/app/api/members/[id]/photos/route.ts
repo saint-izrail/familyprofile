@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { revalidatePublic } from "@/lib/revalidate";
 
 // Tambah foto galeri ke anggota. Admin saja.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -12,14 +13,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const url = typeof b?.url === "string" ? b.url.trim() : "";
   if (!url) return NextResponse.json({ ok: false, message: "URL foto wajib." }, { status: 422 });
 
-  const count = await prisma.photo.count({ where: { memberId: id } });
-  const photo = await prisma.photo.create({
-    data: {
-      memberId: id,
-      url,
-      caption: typeof b?.caption === "string" && b.caption.trim() ? b.caption.trim() : null,
-      order: count,
-    },
-  });
-  return NextResponse.json({ ok: true, photo });
+  const member = await prisma.member.findUnique({ where: { id }, select: { id: true } });
+  if (!member) return NextResponse.json({ ok: false, message: "Anggota tidak ditemukan." }, { status: 404 });
+
+  try {
+    // Urutan dari max(order) agar tak tabrakan/renggang (vs count lama).
+    const last = await prisma.photo.aggregate({ where: { memberId: id }, _max: { order: true } });
+    const photo = await prisma.photo.create({
+      data: {
+        memberId: id,
+        url,
+        caption: typeof b?.caption === "string" && b.caption.trim() ? b.caption.trim() : null,
+        order: (last._max.order ?? -1) + 1,
+      },
+    });
+    revalidatePublic();
+    return NextResponse.json({ ok: true, photo });
+  } catch (e) {
+    return NextResponse.json({ ok: false, message: (e as Error).message }, { status: 500 });
+  }
 }

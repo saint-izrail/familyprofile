@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getFamily } from "@/lib/members";
@@ -7,7 +8,7 @@ import { Reveal } from "@/components/reveal";
 import { SuggestButton } from "@/components/suggest-button";
 import { IconArrowLeft, IconUsers, IconArrowRight, IconHeart, IconCalendar, IconPhoto } from "@/components/icons";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -20,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   if (!fam) return { title: "Keluarga tidak ditemukan" };
   const names = fam.members.map((m) => m.name).join(" & ");
   return {
-    title: `Keluarga ${names} — Bani Amenan Effendi`,
+    title: `Keluarga ${names}`,
     description: `Profil keluarga ${names}: foto keluarga, anggota, dan bio singkat.`,
     openGraph: { title: `Keluarga ${names}`, images: fam.familyPhotoUrl ? [fam.familyPhotoUrl] : undefined },
   };
@@ -28,12 +29,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function FamilyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  let fam;
-  try {
-    fam = await getFamily(id);
-  } catch {
-    notFound();
-  }
+  // Galat DB asli dibiarkan naik ke error.tsx; hanya "tak ada" yang jadi 404.
+  const fam = await getFamily(id);
   if (!fam) notFound();
 
   const title = fam.members.map((m) => m.name).join(" & ");
@@ -51,8 +48,7 @@ export default async function FamilyPage({ params }: { params: Promise<{ id: str
           {/* Foto keluarga (banner utama) */}
           <figure className="relative aspect-[16/9] w-full overflow-hidden border-b border-edge">
             {fam.familyPhotoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={fam.familyPhotoUrl} alt={`Foto keluarga ${title}`} className="h-full w-full object-cover" />
+              <Image src={fam.familyPhotoUrl} alt={`Foto keluarga ${title}`} fill priority sizes="(max-width: 896px) 100vw, 896px" className="object-cover" />
             ) : (
               <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary/10 via-surface to-gold/10 text-center">
                 <span className="flex h-14 w-14 items-center justify-center rounded-full border border-gold/30 bg-primary/10 text-primary">

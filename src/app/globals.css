@@ -18,7 +18,8 @@
   --primary-deep: #08503a;
   --gold: #c19a2e;
   --gold-soft: #e8d9a8;
-  --secondary: #9a7b2e;
+  /* Darkened to ~4.7:1 on the ivory bg so label/eyebrow text meets WCAG 1.4.3. */
+  --secondary: #7a5f1e;
   --ink: #1b231e;
   --muted: #5c665f;
   --line: #d9d3c3;
@@ -129,6 +130,30 @@ body {
 }
 ::selection { background: color-mix(in srgb, var(--gold) 35%, transparent); color: var(--foreground); }
 
+/* Cincin fokus konsisten untuk semua kontrol (keyboard-only, tak ganggu mouse). */
+:where(a, button, [role="button"], input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 65%, transparent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+/* Link lewati-konten (skip link) — tampil hanya saat difokus keyboard. */
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 100;
+  transform: translateY(-160%);
+  transition: transform 0.18s ease;
+  background: var(--primary-dark);
+  color: var(--on-accent);
+  padding: 0.55rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  box-shadow: 0 12px 44px -16px color-mix(in srgb, var(--primary) 28%, transparent);
+}
+.skip-link:focus { transform: translateY(0); outline: none; }
+
 /* ===== Utilitas premium ===== */
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 @keyframes floatSlow { 0%, 100% { transform: translate(0,0) scale(1); } 50% { transform: translate(8px,-18px) scale(1.05); } }
@@ -160,6 +185,9 @@ body {
 .animate-glow { animation: glowPulse 4s ease-in-out infinite; }
 .animate-gradient { background-size: 200% 200%; animation: gradientPan 6s ease infinite; }
 .bg-grid { background-image: radial-gradient(color-mix(in srgb, var(--foreground) 9%, transparent) 1px, transparent 1px); background-size: 22px 22px; }
+/* Skeleton loading: blok netral dengan kilau bergerak (sheen). */
+.skeleton { position: relative; overflow: hidden; background: var(--surface-2); }
+.skeleton::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent, var(--shimmer), transparent); transform: translateX(-100%); animation: sheen 1.6s ease-in-out infinite; }
 .shadow-ambient { box-shadow: 0 8px 32px 0 color-mix(in srgb, var(--primary) 10%, transparent); }
 .shadow-ambient-lg { box-shadow: 0 12px 44px -16px color-mix(in srgb, var(--primary) 28%, transparent); }
 .shadow-ambient-xl { box-shadow: 0 24px 70px -24px color-mix(in srgb, var(--primary) 34%, transparent); }
@@ -170,6 +198,7 @@ body {
   .reveal { opacity: 1; transform: none; transition: none; }
   .animate-float, .animate-float-slow, .animate-spin-slow, .animate-glow, .animate-gradient { animation: none !important; }
   .btn-shine::after { display: none; }
+  .skeleton::after { animation: none; }
 }
 
 /* ===== Pohon silsilah (org-chart connectors) ===== */

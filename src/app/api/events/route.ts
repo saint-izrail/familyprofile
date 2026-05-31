@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { revalidatePublic } from "@/lib/revalidate";
 
 function str(v: unknown): string | null {
   return typeof v === "string" && v.trim() ? v.trim() : null;
@@ -31,6 +32,7 @@ export async function POST(req: Request) {
         memberId: str(b?.memberId),
       },
     });
+    revalidatePublic();
     return NextResponse.json({ ok: true, event: { id: event.id } });
   } catch (e) {
     return NextResponse.json({ ok: false, message: (e as Error).message }, { status: 500 });

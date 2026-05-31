@@ -6,6 +6,7 @@
 // sampai disetujui (tidak perlu router.refresh).
 import { useEffect, useId, useRef, useState } from "react";
 import { ImageCropper } from "@/components/image-cropper";
+import { useModal, isTopmost } from "@/components/use-modal";
 import { IconPhoto, IconUser, IconCalendar, IconClose, IconUpload, IconCheck, IconSparkle } from "@/components/icons";
 
 type Kind = "galeri" | "foto-profil" | "foto-keluarga" | "bio" | "agenda";
@@ -95,6 +96,10 @@ export function SuggestButton({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Kunci scroll + perangkap fokus + kembalikan fokus ke pemicu.
+  const modalToken = useModal(open, dialogRef);
 
   const titleId = useId();
   const errId = useId();
@@ -117,17 +122,21 @@ export function SuggestButton({
     return () => URL.revokeObjectURL(preview);
   }, [preview]);
 
-  // Saat modal terbuka: fokus tombol tutup + tutup dengan Escape.
+  // Fokus tombol tutup HANYA saat modal pertama terbuka (bukan tiap cropFile
+  // berubah) agar fokus tak tercabut setelah cropper ditutup.
+  useEffect(() => {
+    if (open) closeBtnRef.current?.focus();
+  }, [open]);
+
+  // Tutup dengan Escape — hanya bila modal ini teratas & cropper tak aktif.
   useEffect(() => {
     if (!open) return;
-    closeBtnRef.current?.focus();
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && !cropFile) close();
+      if (e.key === "Escape" && !cropFile && isTopmost(modalToken)) close();
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, cropFile]);
+  }, [open, cropFile, modalToken]);
 
   function resetFields() {
     setErr(null);
@@ -158,6 +167,14 @@ export function SuggestButton({
   function close() {
     setOpen(false);
     setCropFile(null);
+  }
+
+  // Kirim usulan lain tanpa menutup modal — pertahankan nama pengirim.
+  function sendAnother() {
+    const keepSender = submittedBy;
+    resetFields();
+    setSubmittedBy(keepSender);
+    setDone(false);
   }
 
   function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -293,10 +310,11 @@ export function SuggestButton({
           }}
         >
           <div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
-            className="w-full max-w-md rounded-2xl border border-edge bg-surface-3 p-5 shadow-ambient-lg"
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl border border-edge bg-surface-3 p-5 shadow-ambient-lg"
           >
             <div className="mb-4 flex items-center justify-between gap-3">
               <h3
@@ -323,15 +341,25 @@ export function SuggestButton({
                   <IconCheck className="h-7 w-7" />
                 </div>
                 <p className="mx-auto mt-4 max-w-xs text-sm text-ink">
-                  Terkirim! Usulanmu menunggu persetujuan admin.
+                  Terkirim! Usulanmu menunggu persetujuan admin dan akan tampil setelah disetujui.
                 </p>
-                <button
-                  type="button"
-                  onClick={close}
-                  className="ring-glow mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-primary-dark px-6 py-2.5 text-sm font-semibold text-on-accent shadow-ambient transition-opacity"
-                >
-                  Tutup
-                </button>
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={close}
+                    className="ring-glow inline-flex items-center justify-center gap-2 rounded-xl bg-primary-dark px-6 py-2.5 text-sm font-semibold text-on-accent shadow-ambient transition-opacity"
+                  >
+                    Tutup
+                  </button>
+                  <button
+                    type="button"
+                    onClick={sendAnother}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-edge px-5 py-2.5 text-sm font-semibold text-primary-deep transition-colors hover:bg-primary/5"
+                  >
+                    <IconSparkle className="h-4 w-4" />
+                    Kirim lagi
+                  </button>
+                </div>
               </div>
             ) : (
               <form onSubmit={onSubmit} className="flex flex-col gap-4">

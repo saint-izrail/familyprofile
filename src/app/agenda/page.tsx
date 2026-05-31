@@ -1,11 +1,17 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { getUpcomingEvents, type EventItem } from "@/lib/events";
 import { getFlatMembers, type FlatMember } from "@/lib/members";
 import { Reveal } from "@/components/reveal";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { SuggestButton } from "@/components/suggest-button";
 import { IconCalendar, IconSparkle, IconHeart, IconArrowRight } from "@/components/icons";
 
+// Dinamis: "X hari lagi" / "Hari ini" dihitung dari tanggal saat ini, jadi
+// tak boleh di-cache (ISR akan membekukan hitungan mundur & menahan acara lewat).
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Agenda & Momen" };
 
 const dayFmt = new Intl.DateTimeFormat("id-ID", { day: "numeric" });
 const monthFmt = new Intl.DateTimeFormat("id-ID", { month: "short" });
@@ -67,40 +73,21 @@ export default async function AgendaPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-10 md:px-6">
-      <Reveal>
-        <header className="mb-10 text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-gold/30 bg-surface-2 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-secondary">
-            <IconCalendar className="h-3.5 w-3.5" />
-            Agenda Keluarga
-          </span>
-          <h1 className="mt-4 font-serif text-3xl font-extrabold md:text-5xl">
-            <span className="gold-text">Agenda &amp; Momen</span>
-          </h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm text-muted">
-            Ulang tahun, acara, dan rencana keluarga besar yang menanti di
-            depan. Mari rayakan setiap momen bersama.
-          </p>
-          <div className="mt-6 flex justify-center">
-            <SuggestButton kind="agenda" members={members} label="Usulkan Momen" />
-          </div>
-          <div className="divider-gold mx-auto mt-5 max-w-xs" />
-        </header>
-      </Reveal>
+      <PageHeader
+        eyebrow="Agenda Keluarga"
+        icon={IconCalendar}
+        title="Agenda & Momen"
+        subtitle="Ulang tahun, acara, dan rencana keluarga besar yang menanti di depan. Mari rayakan setiap momen bersama."
+        action={<SuggestButton kind="agenda" members={members} label="Usulkan Momen" />}
+      />
 
       {events.length === 0 ? (
         <Reveal delay={80}>
-          <div className="rounded-3xl border border-edge bg-surface p-14 text-center shadow-ambient">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <IconCalendar className="h-8 w-8" />
-            </div>
-            <h2 className="mt-4 font-serif text-xl font-bold text-primary-deep">
-              Belum ada agenda mendatang.
-            </h2>
-            <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-              Tandai tanggal-tanggal istimewa keluarga agar tak terlewat.
-              Agenda yang akan datang tampil di sini.
-            </p>
-          </div>
+          <EmptyState
+            icon={IconCalendar}
+            title="Belum ada agenda mendatang"
+            description="Tandai tanggal-tanggal istimewa keluarga agar tak terlewat. Agenda yang akan datang tampil di sini."
+          />
         </Reveal>
       ) : (
         <ol className="space-y-4">

@@ -17,6 +17,21 @@ const NAV = [
   { href: "/hubungan", label: "Hubungan", icon: IconHeart },
 ];
 
+// Pemetaan rute "anak" ke item nav induknya agar tetap ter-highlight di
+// halaman dalam (mis. /anggota & /keluarga -> Silsilah).
+function isActive(href: string, pathname: string): boolean {
+  if (href === "/") return pathname === "/";
+  if (href === "/silsilah") {
+    return (
+      pathname.startsWith("/silsilah") ||
+      pathname.startsWith("/anggota") ||
+      pathname.startsWith("/keluarga")
+    );
+  }
+  if (href === "/daftar") return pathname.startsWith("/daftar") || pathname.startsWith("/kirim-foto");
+  return pathname.startsWith(href);
+}
+
 export function NavBar() {
   const pathname = usePathname();
   if (pathname.startsWith("/admin")) return null;
@@ -29,10 +44,10 @@ export function NavBar() {
         </Link>
 
         <div className="flex min-w-0 items-center gap-1 sm:gap-1.5">
-          <div className="flex items-center gap-0.5 overflow-x-auto sm:gap-1">
+          <div className="flex items-center gap-0.5 overflow-x-auto sm:gap-1 [mask-image:linear-gradient(to_right,transparent,black_1.25rem,black_calc(100%-1.25rem),transparent)] sm:[mask-image:none]">
             {NAV.map((item) => {
               const Icon = item.icon;
-              const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              const active = isActive(item.href, pathname);
               return (
                 <Link
                   key={item.href}
@@ -41,7 +56,7 @@ export function NavBar() {
                   title={item.label}
                   className={
                     active
-                      ? "flex shrink-0 items-center gap-1.5 rounded-full bg-primary-dark px-2.5 py-2 text-sm font-semibold text-on-accent shadow-ambient lg:px-3.5"
+                      ? "flex shrink-0 items-center gap-1.5 rounded-full bg-primary-dark px-2.5 py-2 text-sm font-semibold text-on-accent shadow-ambient ring-1 ring-gold/30 lg:px-3.5"
                       : "flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-2 text-sm font-medium text-muted transition-colors hover:bg-primary/10 hover:text-primary-deep lg:px-3.5"
                   }
                 >
@@ -51,9 +66,7 @@ export function NavBar() {
               );
             })}
           </div>
-          <div className="hidden sm:block">
-            <CommandPalette />
-          </div>
+          <CommandPalette />
           <ThemeToggle />
         </div>
       </nav>

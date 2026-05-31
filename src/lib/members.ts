@@ -2,6 +2,7 @@
 // Model: setiap pasangan = dua anggota nyata yang saling tertaut (partnerId).
 // Garis keturunan = anggota dengan marriedIn=false. Pasangan (marriedIn=true)
 // menempel pada anggota keturunan, dan anak bergantung pada anggota keturunan.
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import type { MemberFull, PartnerLite } from "@/lib/types";
 
@@ -52,8 +53,10 @@ function buildTree(rows: Row[]): TreeMember[] {
   return roots;
 }
 
-export async function getTree(): Promise<TreeMember[]> {
-  const rows = await prisma.member.findMany({
+// Satu sumber baris anggota, di-dedupe per-request via React cache() sehingga
+// getTree/getStats/countNodes pada satu render hanya menembak DB sekali.
+const getMemberRows = cache(async (): Promise<Row[]> =>
+  prisma.member.findMany({
     orderBy: [{ order: "asc" }, { createdAt: "asc" }],
     select: {
       id: true,
@@ -65,13 +68,12 @@ export async function getTree(): Promise<TreeMember[]> {
       partnerId: true,
       marriedIn: true,
     },
-  });
-  return buildTree(rows);
-}
+  }),
+);
 
-export async function countMembers(): Promise<number> {
-  return prisma.member.count();
-}
+export const getTree = cache(async (): Promise<TreeMember[]> => {
+  return buildTree(await getMemberRows());
+});
 
 // Profil individu. Untuk pasangan (marriedIn), keluarga berpusat di pasangannya
 // (garis keturunan), sehingga "anak" diambil dari anchor tersebut.
@@ -80,7 +82,12 @@ export async function getMemberFull(id: string): Promise<MemberFull | null> {
     where: { id },
     include: {
       photos: { where: { approved: true }, orderBy: { order: "asc" } },
-      partner: { select: { id: true, name: true, number: true, isDeceased: true, avatarUrl: true, parentId: true } },
+      partner: {
+        select: {
+          id: true, name: true, number: true, isDeceased: true, avatarUrl: true, parentId: true,
+          parent: { select: { id: true, name: true, number: true } },
+        },
+      },
       parent: { select: { id: true, name: true, number: true } },
     },
   });
@@ -89,14 +96,9 @@ export async function getMemberFull(id: string): Promise<MemberFull | null> {
   const anchorId = m.marriedIn && m.partnerId ? m.partnerId : m.id;
   const anchorParentId = m.marriedIn ? (m.partner?.parentId ?? null) : m.parentId;
 
-  let parent = m.parent;
-  if (m.marriedIn && m.partnerId) {
-    const pa = await prisma.member.findUnique({
-      where: { id: m.partnerId },
-      select: { parent: { select: { id: true, name: true, number: true } } },
-    });
-    parent = pa?.parent ?? null;
-  }
+  // Untuk pasangan (married-in), induk diambil dari sisi keturunan (partner) —
+  // sudah ikut di-include di atas, jadi tak perlu query kedua.
+  const parent = m.marriedIn && m.partnerId ? (m.partner?.parent ?? null) : m.parent;
 
   const children = await prisma.member.findMany({
     where: { parentId: anchorId },
@@ -176,40 +178,6 @@ export async function getFamily(anyId: string): Promise<FamilyData | null> {
   };
 }
 
-export type Crumb = { id: string; name: string; number: string | null };
-
-// Jalur leluhur (akar -> anggota) untuk breadcrumb. Lewat garis keturunan.
-export async function getAncestry(id: string): Promise<Crumb[]> {
-  const all = await prisma.member.findMany({ select: { id: true, name: true, number: true, parentId: true } });
-  const map = new Map(all.map((m) => [m.id, m]));
-  const path: Crumb[] = [];
-  let cur = map.get(id);
-  let guard = 0;
-  while (cur && guard++ < 60) {
-    path.unshift({ id: cur.id, name: cur.name, number: cur.number });
-    cur = cur.parentId ? map.get(cur.parentId) : undefined;
-  }
-  return path;
-}
-
-export type SiblingMember = {
-  id: string;
-  name: string;
-  number: string | null;
-  avatarUrl: string | null;
-  isDeceased: boolean;
-  spouseName: string | null;
-};
-
-export async function getSiblings(id: string, parentId: string | null): Promise<SiblingMember[]> {
-  if (!parentId) return [];
-  return prisma.member.findMany({
-    where: { parentId, NOT: { id } },
-    orderBy: [{ order: "asc" }, { createdAt: "asc" }],
-    select: { id: true, name: true, number: true, avatarUrl: true, isDeceased: true, spouseName: true },
-  });
-}
-
 export type FamilyStat = { id: string; name: string; spouseName: string | null; count: number };
 export type Stats = {
   total: number;
@@ -225,12 +193,12 @@ function countLineage(nodes: TreeMember[]): number {
 }
 
 export async function getStats(): Promise<Stats> {
-  const [total, deceased, couples] = await Promise.all([
-    prisma.member.count(),
-    prisma.member.count({ where: { isDeceased: true } }),
-    prisma.member.count({ where: { marriedIn: true } }),
-  ]);
-  const tree = await getTree();
+  // Hitung total/almarhum/pasangan dari satu query (rows) alih-alih 3 count().
+  const rows = await getMemberRows();
+  const total = rows.length;
+  const deceased = rows.reduce((n, r) => n + (r.isDeceased ? 1 : 0), 0);
+  const couples = rows.reduce((n, r) => n + (r.marriedIn ? 1 : 0), 0);
+  const tree = buildTree(rows);
   const root = tree[0] ?? null;
   let maxDepth = 0;
   const walk = (n: TreeMember, d: number) => {
@@ -258,12 +226,12 @@ export type FlatMember = {
   marriedIn: boolean;
 };
 
-export async function getFlatMembers(): Promise<FlatMember[]> {
-  return prisma.member.findMany({
+export const getFlatMembers = cache(async (): Promise<FlatMember[]> =>
+  prisma.member.findMany({
     orderBy: [{ number: "asc" }, { order: "asc" }],
     select: { id: true, number: true, name: true, spouseName: true, parentId: true, partnerId: true, marriedIn: true },
-  });
-}
+  }),
+);
 
 export type AdminMember = {
   id: string;
@@ -304,38 +272,6 @@ export async function getAllForAdmin(): Promise<AdminMember[]> {
     avatarUrl: m.avatarUrl,
     familyPhotoUrl: m.familyPhotoUrl,
     photos: m.photos.map((p) => ({ id: p.id, url: p.url, caption: p.caption, order: p.order })),
-  }));
-}
-
-export async function getRoot() {
-  return prisma.member.findFirst({ where: { parentId: null, marriedIn: false }, orderBy: { order: "asc" } });
-}
-
-// Foto menunggu persetujuan (upload mandiri publik) — untuk dasbor admin.
-export type PendingPhoto = {
-  id: string;
-  url: string;
-  caption: string | null;
-  submittedBy: string | null;
-  createdAt: string;
-  memberId: string;
-  memberName: string;
-};
-
-export async function getPendingPhotos(): Promise<PendingPhoto[]> {
-  const rows = await prisma.photo.findMany({
-    where: { approved: false },
-    orderBy: { createdAt: "desc" },
-    include: { member: { select: { name: true } } },
-  });
-  return rows.map((p) => ({
-    id: p.id,
-    url: p.url,
-    caption: p.caption,
-    submittedBy: p.submittedBy,
-    createdAt: p.createdAt.toISOString(),
-    memberId: p.memberId,
-    memberName: p.member.name,
   }));
 }
 

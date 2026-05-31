@@ -3,6 +3,7 @@
 // Pemotong foto (crop) interaktif: geser + zoom di dalam bingkai beraspek
 // tertentu, lalu hasil crop diekspor sebagai Blob JPEG. Tanpa dependency.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useModal, isTopmost } from "@/components/use-modal";
 import { IconClose, IconZoomIn, IconZoomOut } from "@/components/icons";
 
 export function ImageCropper({
@@ -26,12 +27,27 @@ export function ImageCropper({
   const [ty, setTy] = useState(0);
   const [busy, setBusy] = useState(false);
   const drag = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
+  const pointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinch = useRef<{ dist: number; zoom: number } | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Kunci scroll + perangkap fokus + kembalikan fokus ke pemicu (modal teratas).
+  const modalToken = useModal(true, dialogRef);
 
   useEffect(() => {
     const u = URL.createObjectURL(file);
     setSrc(u);
     return () => URL.revokeObjectURL(u);
   }, [file]);
+
+  // Escape untuk membatalkan (hanya bila cropper modal teratas).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && isTopmost(modalToken)) onCancel();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel, modalToken]);
 
   useEffect(() => {
     const el = frameRef.current;
@@ -77,22 +93,50 @@ export function ImageCropper({
   }
 
   function onDown(e: React.PointerEvent) {
-    drag.current = { x: e.clientX, y: e.clientY, tx, ty };
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      pinch.current = { dist: Math.hypot(a!.x - b!.x, a!.y - b!.y) || 1, zoom };
+      drag.current = null;
+    } else {
+      drag.current = { x: e.clientX, y: e.clientY, tx, ty };
+    }
   }
   function onMove(e: React.PointerEvent) {
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    // Dua jari -> cubit untuk zoom.
+    if (pinch.current && pointers.current.size >= 2) {
+      const [a, b] = [...pointers.current.values()];
+      const dist = Math.hypot(a!.x - b!.x, a!.y - b!.y);
+      setZoom(Math.min(3, Math.max(1, pinch.current.zoom * (dist / pinch.current.dist))));
+      return;
+    }
     if (!drag.current) return;
     const c = clamp(drag.current.tx + (e.clientX - drag.current.x), drag.current.ty + (e.clientY - drag.current.y));
     setTx(c.x);
     setTy(c.y);
   }
   function onUp(e: React.PointerEvent) {
-    drag.current = null;
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
+    if (pointers.current.size === 0) drag.current = null;
     try {
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {
       /* noop */
     }
+  }
+
+  // Geser dengan panah keyboard; +/- untuk zoom (aksesibilitas).
+  function onFrameKey(e: React.KeyboardEvent) {
+    const step = 24;
+    if (e.key === "ArrowLeft") { e.preventDefault(); const c = clamp(tx - step, ty); setTx(c.x); setTy(c.y); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); const c = clamp(tx + step, ty); setTx(c.x); setTy(c.y); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); const c = clamp(tx, ty - step); setTx(c.x); setTy(c.y); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); const c = clamp(tx, ty + step); setTx(c.x); setTy(c.y); }
+    else if (e.key === "+" || e.key === "=") { e.preventDefault(); setZoom((z) => Math.min(3, z + 0.2)); }
+    else if (e.key === "-") { e.preventDefault(); setZoom((z) => Math.max(1, z - 0.2)); }
   }
 
   function crop() {
@@ -127,7 +171,7 @@ export function ImageCropper({
 
   return (
     <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Sesuaikan foto">
-      <div className="w-full max-w-md rounded-2xl border border-edge bg-surface-3 p-5 shadow-ambient-lg">
+      <div ref={dialogRef} className="max-h-[90vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl border border-edge bg-surface-3 p-5 shadow-ambient-lg">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-serif text-base font-bold text-primary-deep">Sesuaikan Foto</h3>
           <button type="button" onClick={onCancel} aria-label="Tutup" className="text-muted hover:text-ink">
@@ -141,6 +185,10 @@ export function ImageCropper({
           onPointerMove={onMove}
           onPointerUp={onUp}
           onPointerCancel={onUp}
+          onKeyDown={onFrameKey}
+          tabIndex={0}
+          role="application"
+          aria-label="Area pemotongan foto — seret atau gunakan panah untuk menggeser, +/- untuk zoom"
           className="relative w-full cursor-grab touch-none overflow-hidden rounded-xl border border-edge bg-black/40 active:cursor-grabbing"
           style={{ aspectRatio: String(aspect) }}
         >
@@ -159,7 +207,7 @@ export function ImageCropper({
           <div aria-hidden className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/30" />
         </div>
 
-        <p className="mt-2 text-center text-[11px] text-muted">Seret untuk menggeser · slider untuk zoom</p>
+        <p className="mt-2 text-center text-[11px] text-muted">Seret / cubit untuk geser &amp; zoom · slider atau panah keyboard</p>
         <div className="mt-2 flex items-center gap-3">
           <IconZoomOut className="h-4 w-4 shrink-0 text-muted" />
           <input

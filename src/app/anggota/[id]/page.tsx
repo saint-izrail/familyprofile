@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getMemberFull } from "@/lib/members";
@@ -9,7 +10,7 @@ import { ShareButton } from "@/components/share-button";
 import { SuggestButton } from "@/components/suggest-button";
 import { IconArrowLeft, IconUsers, IconPhoto, IconCalendar } from "@/components/icons";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -22,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   if (!m) return { title: "Anggota tidak ditemukan" };
   const desc = m.bio ?? `Profil ${m.name} — keluarga besar Bani Amenan Effendi & Siti Djamilah.`;
   return {
-    title: `${m.name} — Bani Amenan Effendi`,
+    title: m.name,
     description: desc,
     openGraph: { title: m.name, description: desc, images: m.avatarUrl ? [m.avatarUrl] : undefined },
   };
@@ -30,12 +31,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function MemberPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  let member;
-  try {
-    member = await getMemberFull(id);
-  } catch {
-    notFound();
-  }
+  // Galat DB asli dibiarkan naik ke error.tsx; hanya "tak ada" yang jadi 404.
+  const member = await getMemberFull(id);
   if (!member) notFound();
 
   return (
@@ -64,10 +61,9 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
           <div className="relative flex flex-col items-center gap-7 md:flex-row md:items-start">
             {/* Foto besar */}
             <div className="w-full max-w-[16rem] shrink-0 overflow-hidden rounded-3xl border-2 border-gold/30 bg-primary/10 shadow-ambient md:w-64">
-              <div className="aspect-square">
+              <div className="relative aspect-square">
                 {member.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={member.avatarUrl} alt={member.name} className="h-full w-full object-cover" />
+                  <Image src={member.avatarUrl} alt={member.name} fill priority sizes="(max-width: 768px) 16rem, 256px" className="object-cover" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-6xl font-bold text-primary">{initials(member.name)}</div>
                 )}
@@ -92,7 +88,7 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
                   <p className="whitespace-pre-line text-sm leading-relaxed text-muted md:text-base">{member.bio}</p>
                 </>
               ) : (
-                <p className="mt-4 text-sm italic text-muted/70">Belum ada catatan / bio.</p>
+                <p className="mt-4 text-sm italic text-muted">Belum ada catatan / bio.</p>
               )}
             </div>
           </div>

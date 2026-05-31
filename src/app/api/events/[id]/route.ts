@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma";
+import { revalidatePublic } from "@/lib/revalidate";
 
 function str(v: unknown): string | null {
   return typeof v === "string" && v.trim() ? v.trim() : null;
@@ -31,6 +32,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   try {
     await prisma.event.update({ where: { id }, data });
+    revalidatePublic();
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ ok: false, message: "Momen tidak ditemukan." }, { status: 404 });
@@ -44,6 +46,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   try {
     await prisma.event.delete({ where: { id } });
+    revalidatePublic();
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ ok: false, message: "Momen tidak ditemukan." }, { status: 404 });

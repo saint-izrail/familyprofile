@@ -40,7 +40,3 @@ export async function getSubmissions(): Promise<SubmissionItem[]> {
     createdAt: s.createdAt.toISOString(),
   }));
 }
-
-export async function countSubmissions(): Promise<number> {
-  return prisma.submission.count();
-}

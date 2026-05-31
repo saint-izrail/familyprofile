@@ -1,6 +1,6 @@
 // Seed pohon keluarga — versi terbaru (disalin dari daftar resmi).
 // Mencakup koreksi nama, anggota baru, dan tanda almarhum.
-import { PrismaClient } from "../src/generated/prisma";
+import { PrismaClient, type Prisma } from "../src/generated/prisma";
 
 const prisma = new PrismaClient();
 
@@ -178,8 +178,8 @@ const ROOT: Node = {
   ],
 };
 
-async function insertNode(node: Node, parentId: string | null, order: number) {
-  const desc = await prisma.member.create({
+async function insertNode(db: Prisma.TransactionClient, node: Node, parentId: string | null, order: number) {
+  const desc = await db.member.create({
     data: {
       number: node.number,
       name: node.name,
@@ -193,7 +193,7 @@ async function insertNode(node: Node, parentId: string | null, order: number) {
   });
 
   if (node.spouseName) {
-    const spouse = await prisma.member.create({
+    const spouse = await db.member.create({
       data: {
         name: node.spouseName,
         spouseName: node.name,
@@ -204,19 +204,28 @@ async function insertNode(node: Node, parentId: string | null, order: number) {
         partnerId: desc.id,
       },
     });
-    await prisma.member.update({ where: { id: desc.id }, data: { partnerId: spouse.id } });
+    await db.member.update({ where: { id: desc.id }, data: { partnerId: spouse.id } });
   }
 
   let i = 0;
   for (const child of node.children ?? []) {
-    await insertNode(child, desc.id, i++);
+    await insertNode(db, child, desc.id, i++);
   }
 }
 
 async function main() {
-  await prisma.photo.deleteMany();
-  await prisma.member.deleteMany();
-  await insertNode(ROOT, null, 0);
+  // Hapus-lalu-bangun dalam satu transaksi: gagal di tengah TIDAK meninggalkan
+  // DB live separuh-terhapus. Timeout dinaikkan untuk pohon besar di pooler.
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.photo.deleteMany();
+      await tx.submission.deleteMany();
+      await tx.event.deleteMany();
+      await tx.member.deleteMany();
+      await insertNode(tx, ROOT, null, 0);
+    },
+    { timeout: 60000, maxWait: 15000 },
+  );
   const count = await prisma.member.count();
   console.log(`✓ Seeded ${count} anggota keluarga (data terbaru).`);
 }
