@@ -20,30 +20,46 @@ const MIN = 0.2;
 const MAX = 2.8;
 const clamp = (v: number, min = MIN, max = MAX) => Math.min(max, Math.max(min, v));
 
-type Laid = { m: TreeMember; cx: number; y: number };
+type Laid = { m: TreeMember; cx: number; y: number; anchorX: number };
 
-// Tata letak otomatis: leaf mengisi slot horizontal; induk dipusatkan di atas
-// anak-anaknya; ruang pasangan (kanan) ikut diperhitungkan agar tak menumpuk.
+// Titik turun garis ke anak = tanda ♥ (tengah pasangan) bila berpasangan,
+// atau pusat kartu bila lajang. anchorOffset = jarak dari pusat kartu keturunan
+// ke tanda ♥.
+const anchorOffset = (m: TreeMember) => (m.partner ? CARD_W / 2 + SPOUSE_GAP / 2 : 0);
+
+// Tata letak otomatis: leaf mengisi slot horizontal; induk diposisikan agar
+// tanda ♥-nya tepat di atas rentang anak-anaknya; ruang pasangan diperhitungkan.
 function computeLayout(roots: TreeMember[]) {
   const laid: Laid[] = [];
   let cursor = 0;
   const walk = (node: TreeMember, depth: number): number => {
     const y = depth * LEVEL_H;
     const spouseExt = node.partner ? SPOUSE_GAP + SPOUSE_W : 0;
+    const off = anchorOffset(node);
     let cx: number;
     if (node.children.length === 0) {
       cx = cursor + CARD_W / 2;
       cursor += CARD_W + spouseExt + H_GAP;
     } else {
       const childCx = node.children.map((c) => walk(c, depth + 1));
-      cx = (childCx[0] + childCx[childCx.length - 1]) / 2;
+      const busCenter = (childCx[0] + childCx[childCx.length - 1]) / 2;
+      cx = busCenter - off; // geser agar ♥ (cx+off) tepat di tengah anak
       const rightEdge = cx + CARD_W / 2 + spouseExt;
       if (rightEdge + H_GAP > cursor) cursor = rightEdge + H_GAP;
     }
-    laid.push({ m: node, cx, y });
+    laid.push({ m: node, cx, y, anchorX: cx + off });
     return cx;
   };
   roots.forEach((r) => walk(r, 0));
+
+  // Geser semua agar tak ada koordinat negatif.
+  let minX = Infinity;
+  for (const l of laid) minX = Math.min(minX, l.cx - CARD_W / 2);
+  const shift = 24 - (Number.isFinite(minX) ? minX : 0);
+  for (const l of laid) {
+    l.cx += shift;
+    l.anchorX += shift;
+  }
 
   const pos = new Map(laid.map((l) => [l.m.id, l]));
   let maxX = 0;
@@ -53,7 +69,7 @@ function computeLayout(roots: TreeMember[]) {
     if (right > maxX) maxX = right;
     if (l.y + CARD_H > maxY) maxY = l.y + CARD_H;
   }
-  return { laid, pos, width: maxX + 20, height: maxY + 20 };
+  return { laid, pos, width: maxX + 24, height: maxY + 24 };
 }
 
 export function FamilyTree({ roots }: { roots: TreeMember[] }) {
@@ -245,7 +261,9 @@ export function FamilyTree({ roots }: { roots: TreeMember[] }) {
     const childPos = l.m.children.map((c) => pos.get(c.id)!).filter(Boolean);
     if (childPos.length === 0) continue;
     const busY = l.y + CARD_H + (LEVEL_H - CARD_H) / 2;
-    segments.push({ x1: l.cx, y1: l.y + CARD_H, x2: l.cx, y2: busY }); // turun dari keturunan
+    // Turun dari tanda ♥ (atau pusat kartu bila lajang).
+    const dropStartY = l.m.partner ? l.y + CARD_H / 2 : l.y + CARD_H;
+    segments.push({ x1: l.anchorX, y1: dropStartY, x2: l.anchorX, y2: busY });
     const xs = childPos.map((c) => c.cx);
     segments.push({ x1: Math.min(...xs), y1: busY, x2: Math.max(...xs), y2: busY }); // bus
     for (const c of childPos) segments.push({ x1: c.cx, y1: busY, x2: c.cx, y2: c.y }); // ke tiap anak
@@ -295,7 +313,6 @@ export function FamilyTree({ roots }: { roots: TreeMember[] }) {
                     {m.name}
                     {m.isDeceased && <span className="font-normal text-muted"> (alm)</span>}
                   </span>
-                  {m.number && <span className="text-[10px] font-semibold tracking-wider text-secondary">{m.number}</span>}
                 </button>
 
                 {/* Pasangan + ♥ keluarga */}

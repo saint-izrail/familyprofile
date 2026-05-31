@@ -74,12 +74,7 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
 
             {/* Identitas */}
             <div className="min-w-0 flex-1 text-center md:pt-2 md:text-left">
-              {member.number && (
-                <span className="inline-block rounded-full border border-gold/30 bg-gold-soft/30 px-3 py-0.5 text-xs font-semibold tracking-wider text-secondary">
-                  {member.number}
-                </span>
-              )}
-              <h1 className="mt-3 font-serif text-3xl font-extrabold leading-tight text-ink md:text-4xl">
+              <h1 className="font-serif text-3xl font-extrabold leading-tight text-ink md:text-4xl">
                 {member.name}
                 {member.isDeceased && <span className="ml-2 align-middle text-base font-normal text-muted">(alm)</span>}
               </h1>

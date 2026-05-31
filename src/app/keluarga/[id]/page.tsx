@@ -138,7 +138,6 @@ export default async function FamilyPage({ params }: { params: Promise<{ id: str
                         {c.spouseName && ` & ${c.spouseName}`}
                         {c.isDeceased && <span className="font-normal text-muted"> (alm)</span>}
                       </span>
-                      {c.number && <span className="block text-[10px] tracking-wider text-secondary">{c.number}</span>}
                       {c.bio && <span className="mt-1 line-clamp-2 block text-xs text-muted">{c.bio}</span>}
                     </span>
                     <IconArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted transition-transform group-hover:translate-x-1 group-hover:text-primary" />
