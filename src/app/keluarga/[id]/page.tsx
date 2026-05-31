@@ -68,7 +68,6 @@ export default async function FamilyPage({ params }: { params: Promise<{ id: str
               <IconUsers className="h-3.5 w-3.5" /> Profil Keluarga
             </span>
             <h1 className="mt-3 font-serif text-3xl font-extrabold gold-text md:text-4xl">{title}</h1>
-            {fam.number && <p className="mt-1 text-sm font-semibold tracking-wider text-secondary">{fam.number}</p>}
           </div>
         </section>
       </Reveal>
@@ -99,7 +98,6 @@ export default async function FamilyPage({ params }: { params: Promise<{ id: str
                     {m.name}
                     {m.isDeceased && <span className="font-normal text-muted"> (alm)</span>}
                   </p>
-                  <p className="text-[11px] uppercase tracking-wider text-secondary">{m.role}</p>
                   {m.birthInfo && (
                     <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted">
                       <IconCalendar className="h-3 w-3" /> {m.birthInfo}
