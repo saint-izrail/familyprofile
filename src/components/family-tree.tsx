@@ -29,47 +29,104 @@ const anchorOffset = (m: TreeMember) => (m.partner ? CARD_W / 2 + SPOUSE_GAP / 2
 
 // Tata letak otomatis: leaf mengisi slot horizontal; induk diposisikan agar
 // tanda ♥-nya tepat di atas rentang anak-anaknya; ruang pasangan diperhitungkan.
-function computeLayout(roots: TreeMember[]) {
-  const laid: Laid[] = [];
-  let cursor = 0;
-  const walk = (node: TreeMember, depth: number): number => {
-    const y = depth * LEVEL_H;
-    const spouseExt = node.partner ? SPOUSE_GAP + SPOUSE_W : 0;
-    const off = anchorOffset(node);
-    let cx: number;
-    if (node.children.length === 0) {
-      cx = cursor + CARD_W / 2;
-      cursor += CARD_W + spouseExt + H_GAP;
-    } else {
-      const childCx = node.children.map((c) => walk(c, depth + 1));
-      const busCenter = (childCx[0] + childCx[childCx.length - 1]) / 2;
-      cx = busCenter - off; // geser agar ♥ (cx+off) tepat di tengah anak
-      const rightEdge = cx + CARD_W / 2 + spouseExt;
-      if (rightEdge + H_GAP > cursor) cursor = rightEdge + H_GAP;
+// Kotak satu node (kartu keturunan + pasangan) relatif terhadap ♥-nya (x=0).
+function selfBox(node: TreeMember): { left: number; right: number } {
+  const off = anchorOffset(node);
+  const spouseExt = node.partner ? SPOUSE_GAP + SPOUSE_W : 0;
+  return { left: -off - CARD_W / 2, right: -off + CARD_W / 2 + spouseExt };
+}
+
+type Sub = { nodes: Map<string, { dx: number; depth: number }>; left: number[]; right: number[] };
+
+// Packing kontur: setiap subtree menjaga kontur kiri/kanan per kedalaman,
+// saudara digeser agar konturnya tak bertabrakan di kedalaman manapun.
+function packSiblings(subs: Sub[]): number[] {
+  const anchors: number[] = [0];
+  if (subs.length === 0) return anchors;
+  const mergedR = subs[0].right.slice();
+  for (let i = 1; i < subs.length; i++) {
+    const cl = subs[i];
+    let shift = 0;
+    const dmax = Math.min(mergedR.length, cl.left.length);
+    for (let d = 0; d < dmax; d++) {
+      const need = mergedR[d] + H_GAP - cl.left[d];
+      if (need > shift) shift = need;
     }
-    laid.push({ m: node, cx, y, anchorX: cx + off });
-    return cx;
-  };
-  roots.forEach((r) => walk(r, 0));
-
-  // Geser semua agar tak ada koordinat negatif.
-  let minX = Infinity;
-  for (const l of laid) minX = Math.min(minX, l.cx - CARD_W / 2);
-  const shift = 24 - (Number.isFinite(minX) ? minX : 0);
-  for (const l of laid) {
-    l.cx += shift;
-    l.anchorX += shift;
+    anchors.push(shift);
+    for (let d = 0; d < cl.right.length; d++) {
+      const v = cl.right[d] + shift;
+      mergedR[d] = d < mergedR.length ? Math.max(mergedR[d], v) : v;
+    }
   }
+  return anchors;
+}
 
-  const pos = new Map(laid.map((l) => [l.m.id, l]));
+function layoutSubtree(node: TreeMember): Sub {
+  const box = selfBox(node);
+  if (node.children.length === 0) {
+    return { nodes: new Map([[node.id, { dx: 0, depth: 0 }]]), left: [box.left], right: [box.right] };
+  }
+  const cls = node.children.map(layoutSubtree);
+  const anchors = packSiblings(cls);
+  const nodeAnchor = (anchors[0] + anchors[anchors.length - 1]) / 2;
+
+  const nodes = new Map<string, { dx: number; depth: number }>([[node.id, { dx: 0, depth: 0 }]]);
+  const left = [box.left];
+  const right = [box.right];
+  cls.forEach((cl, i) => {
+    const shift = anchors[i] - nodeAnchor; // ♥ induk di tengah rentang anak
+    for (const [id, p] of cl.nodes) nodes.set(id, { dx: p.dx + shift, depth: p.depth + 1 });
+    for (let d = 0; d < cl.left.length; d++) {
+      const ld = d + 1;
+      const lv = cl.left[d] + shift;
+      const rv = cl.right[d] + shift;
+      if (ld < left.length) {
+        left[ld] = Math.min(left[ld], lv);
+        right[ld] = Math.max(right[ld], rv);
+      } else {
+        left[ld] = lv;
+        right[ld] = rv;
+      }
+    }
+  });
+  return { nodes, left, right };
+}
+
+function computeLayout(roots: TreeMember[]) {
+  const subs = roots.map(layoutSubtree);
+  const anchors = packSiblings(subs);
+
+  const byId = new Map<string, TreeMember>();
+  const collect = (n: TreeMember) => {
+    byId.set(n.id, n);
+    n.children.forEach(collect);
+  };
+  roots.forEach(collect);
+
+  const laid: Laid[] = [];
+  let minLeft = Infinity;
+  subs.forEach((s, i) => {
+    for (const [id, p] of s.nodes) {
+      const m = byId.get(id)!;
+      const off = anchorOffset(m);
+      const anchorX = p.dx + anchors[i];
+      const cx = anchorX - off;
+      laid.push({ m, cx, y: p.depth * LEVEL_H, anchorX });
+      minLeft = Math.min(minLeft, cx - CARD_W / 2);
+    }
+  });
+
+  const shift = 24 - (Number.isFinite(minLeft) ? minLeft : 0);
   let maxX = 0;
   let maxY = 0;
   for (const l of laid) {
+    l.cx += shift;
+    l.anchorX += shift;
     const right = l.cx + CARD_W / 2 + (l.m.partner ? SPOUSE_GAP + SPOUSE_W : 0);
     if (right > maxX) maxX = right;
     if (l.y + CARD_H > maxY) maxY = l.y + CARD_H;
   }
-  return { laid, pos, width: maxX + 24, height: maxY + 24 };
+  return { laid, pos: new Map(laid.map((l) => [l.m.id, l])), width: maxX + 24, height: maxY + 24 };
 }
 
 export function FamilyTree({ roots }: { roots: TreeMember[] }) {
