@@ -1,7 +1,7 @@
 "use client";
 
 // Formulir kirim foto mandiri (publik). Pilih anggota, pangkas foto (16:9),
-// lalu kirim ke /api/requests untuk menunggu persetujuan admin.
+// lalu kirim ke /api/submissions (kind=galeri) untuk menunggu persetujuan admin.
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ImageCropper } from "@/components/image-cropper";
@@ -85,11 +85,12 @@ export function PhotoRequestForm({ members }: { members: Member[] }) {
     setBusy(true);
     try {
       const fd = new FormData();
+      fd.append("kind", "galeri");
       fd.append("file", blob, "photo.jpg");
       fd.append("memberId", memberId);
       fd.append("caption", caption.trim());
       fd.append("submittedBy", submittedBy.trim());
-      const res = await fetch("/api/requests", { method: "POST", body: fd });
+      const res = await fetch("/api/submissions", { method: "POST", body: fd });
       const json = await res.json().catch(() => null);
       if (res.ok && json?.ok) {
         setDone(true);

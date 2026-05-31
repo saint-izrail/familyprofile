@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getFamily } from "@/lib/members";
 import { initials } from "@/lib/format";
 import { Reveal } from "@/components/reveal";
+import { SuggestButton } from "@/components/suggest-button";
 import { IconArrowLeft, IconUsers, IconArrowRight, IconHeart, IconCalendar, IconPhoto } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
@@ -70,6 +71,15 @@ export default async function FamilyPage({ params }: { params: Promise<{ id: str
             <h1 className="mt-3 font-serif text-3xl font-extrabold gold-text md:text-4xl">{title}</h1>
           </div>
         </section>
+      </Reveal>
+
+      {/* Kontribusi: usulkan foto keluarga / foto galeri keluarga */}
+      <Reveal delay={80} className="mt-4">
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-edge bg-surface-2 px-4 py-3">
+          <span className="mr-1 text-sm text-muted">Punya foto keluarga ini?</span>
+          <SuggestButton kind="foto-keluarga" memberId={fam.anchorId} label="Sarankan Foto Keluarga" />
+          <SuggestButton kind="galeri" memberId={fam.anchorId} label="Kirim ke Galeri" />
+        </div>
       </Reveal>
 
       {/* Anggota inti + bio sekilas */}

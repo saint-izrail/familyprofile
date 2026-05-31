@@ -3,6 +3,7 @@ import { getTree, getLandingPhotos, type TreeMember } from "@/lib/members";
 import { Reveal } from "@/components/reveal";
 import { BackgroundFX } from "@/components/background-fx";
 import { HeroCarousel } from "@/components/hero-carousel";
+import { SuggestButton } from "@/components/suggest-button";
 import { IconTree, IconList, IconUsers, IconHeart, IconArrowRight, IconSparkle } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
@@ -101,6 +102,11 @@ export default async function HomePage() {
               </figure>
             )}
           </div>
+          {root && (
+            <div className="mt-4 flex justify-center">
+              <SuggestButton kind="galeri" memberId={root.id} label="Kirim Foto Keluarga Besar" />
+            </div>
+          )}
         </Reveal>
 
         {/* Statistik */}

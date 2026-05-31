@@ -3,11 +3,12 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { AdminMember, PendingPhoto, FlatMember } from "@/lib/members";
+import type { AdminMember, FlatMember } from "@/lib/members";
+import type { SubmissionItem } from "@/lib/submissions";
 import type { EventItem } from "@/lib/events";
 import { BrandMark } from "@/components/brand-mark";
 import { ImageCropper } from "@/components/image-cropper";
-import { RequestsAdmin } from "@/components/requests-admin";
+import { SubmissionsAdmin } from "@/components/submissions-admin";
 import { EventsAdmin } from "@/components/events-admin";
 import {
   IconPlus,
@@ -147,14 +148,14 @@ function ImageInput({
 
 export function AdminDashboard({
   members,
-  pending,
+  submissions,
   events,
   flatMembers,
   storageOn,
   dbError,
 }: {
   members: AdminMember[];
-  pending: PendingPhoto[];
+  submissions: SubmissionItem[];
   events: EventItem[];
   flatMembers: FlatMember[];
   storageOn: boolean;
@@ -340,7 +341,7 @@ export function AdminDashboard({
         {(
           [
             { k: "anggota", label: `Anggota (${members.length})` },
-            { k: "foto", label: `Permintaan Foto (${pending.length})` },
+            { k: "foto", label: `Usulan Masuk (${submissions.length})` },
             { k: "agenda", label: `Agenda (${events.length})` },
           ] as const
         ).map((t) => (
@@ -353,8 +354,8 @@ export function AdminDashboard({
             }`}
           >
             {t.label}
-            {t.k === "foto" && pending.length > 0 && (
-              <span className="ml-1.5 rounded-full bg-gold px-1.5 py-0.5 text-[10px] font-bold text-on-accent">{pending.length}</span>
+            {t.k === "foto" && submissions.length > 0 && (
+              <span className="ml-1.5 rounded-full bg-gold px-1.5 py-0.5 text-[10px] font-bold text-on-accent">{submissions.length}</span>
             )}
           </button>
         ))}
@@ -542,7 +543,7 @@ export function AdminDashboard({
 
       {tab === "foto" && (
         <div className="mt-6">
-          <RequestsAdmin pending={pending} />
+          <SubmissionsAdmin submissions={submissions} />
         </div>
       )}
       {tab === "agenda" && (

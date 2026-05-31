@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "@/components/nav-bar";
 import { SiteFooter } from "@/components/site-footer";
+import { ServiceWorkerRegister } from "@/components/sw-register";
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
@@ -24,7 +25,12 @@ export const metadata: Metadata = {
   title: "Bani Amenan Effendi & Siti Djamilah",
   description:
     "Profil & silsilah keluarga besar Bani Amenan Effendi dan Siti Djamilah — pohon keluarga, daftar anggota, dan galeri foto.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Bani Amenan" },
+  icons: { apple: "/manifest-icon-192" },
 };
+
+export const viewport = { themeColor: "#0f7a57" };
 
 export default function RootLayout({
   children,
@@ -45,6 +51,7 @@ export default function RootLayout({
         <NavBar />
         <div className="flex-1">{children}</div>
         <SiteFooter />
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

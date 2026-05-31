@@ -39,6 +39,7 @@ model Member {
   familyPhotoUrl String? // foto keluarga (untuk node berkeluarga)
   photos         Photo[] // galeri foto
   events         Event[] // agenda/momen terkait anggota ini
+  submissions    Submission[] // usulan menunggu persetujuan
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -63,6 +64,28 @@ model Photo {
   @@index([memberId])
   @@index([approved])
   @@map("photos")
+}
+
+// Usulan terpadu (publik) yang menunggu persetujuan admin. Satu antrian untuk
+// semua jenis kontribusi: foto galeri/profil/keluarga, bio, dan agenda.
+model Submission {
+  id          String    @id @default(uuid())
+  kind        String // "galeri" | "foto-profil" | "foto-keluarga" | "bio" | "agenda"
+  memberId    String?
+  member      Member?   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  imageUrl    String? // untuk jenis foto
+  caption     String? // keterangan foto galeri
+  bio         String? // untuk jenis bio
+  title       String? // agenda
+  date        DateTime? // agenda
+  type        String? // agenda: ulang-tahun | acara | rencana
+  recurring   Boolean   @default(false) // agenda berulang
+  description String? // agenda
+  submittedBy String? // nama pengusul
+  createdAt   DateTime  @default(now())
+
+  @@index([createdAt])
+  @@map("submissions")
 }
 
 // Agenda / momen penting: ulang tahun, acara, rencana (mis. jalan-jalan).

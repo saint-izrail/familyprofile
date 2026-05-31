@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getUpcomingEvents, type EventItem } from "@/lib/events";
+import { getFlatMembers, type FlatMember } from "@/lib/members";
 import { Reveal } from "@/components/reveal";
+import { SuggestButton } from "@/components/suggest-button";
 import { IconCalendar, IconSparkle, IconHeart, IconArrowRight } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
@@ -55,10 +57,12 @@ function countdownTone(days: number): string {
 
 export default async function AgendaPage() {
   let events: EventItem[] = [];
+  let members: FlatMember[] = [];
   try {
-    events = await getUpcomingEvents();
+    [events, members] = await Promise.all([getUpcomingEvents(), getFlatMembers()]);
   } catch {
     events = [];
+    members = [];
   }
 
   return (
@@ -76,6 +80,9 @@ export default async function AgendaPage() {
             Ulang tahun, acara, dan rencana keluarga besar yang menanti di
             depan. Mari rayakan setiap momen bersama.
           </p>
+          <div className="mt-6 flex justify-center">
+            <SuggestButton kind="agenda" members={members} label="Usulkan Momen" />
+          </div>
           <div className="divider-gold mx-auto mt-5 max-w-xs" />
         </header>
       </Reveal>

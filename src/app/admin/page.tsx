@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
-import { getAllForAdmin, getPendingPhotos, getFlatMembers, type AdminMember, type PendingPhoto, type FlatMember } from "@/lib/members";
+import { getAllForAdmin, getFlatMembers, type AdminMember, type FlatMember } from "@/lib/members";
+import { getSubmissions, type SubmissionItem } from "@/lib/submissions";
 import { getAllEvents, type EventItem } from "@/lib/events";
 import { storageConfigured } from "@/lib/storage";
 import { AdminDashboard } from "@/components/admin-dashboard";
@@ -11,14 +12,14 @@ export default async function AdminPage() {
   if (!(await isAdmin())) redirect("/admin/login");
 
   let members: AdminMember[] = [];
-  let pending: PendingPhoto[] = [];
+  let submissions: SubmissionItem[] = [];
   let events: EventItem[] = [];
   let flat: FlatMember[] = [];
   let dbError = false;
   try {
-    [members, pending, events, flat] = await Promise.all([
+    [members, submissions, events, flat] = await Promise.all([
       getAllForAdmin(),
-      getPendingPhotos(),
+      getSubmissions(),
       getAllEvents(),
       getFlatMembers(),
     ]);
@@ -29,7 +30,7 @@ export default async function AdminPage() {
   return (
     <AdminDashboard
       members={members}
-      pending={pending}
+      submissions={submissions}
       events={events}
       flatMembers={flat}
       storageOn={storageConfigured()}

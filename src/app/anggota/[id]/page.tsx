@@ -6,6 +6,7 @@ import { initials } from "@/lib/format";
 import { Reveal } from "@/components/reveal";
 import { PhotoLightbox } from "@/components/photo-lightbox";
 import { ShareButton } from "@/components/share-button";
+import { SuggestButton } from "@/components/suggest-button";
 import { IconArrowLeft, IconUsers, IconPhoto, IconCalendar } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
@@ -44,19 +45,14 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
           <IconArrowLeft className="h-4 w-4" />
           Kembali ke silsilah
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             href={`/keluarga/${member.anchorId}`}
             className="inline-flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold-soft/20 px-4 py-2 text-sm font-medium text-secondary transition-colors hover:bg-gold/10"
           >
             <IconUsers className="h-4 w-4" /> Profil Keluarga
           </Link>
-          <Link
-            href={`/kirim-foto?member=${member.id}`}
-            className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-surface-2 px-4 py-2 text-sm font-medium text-primary-deep transition-colors hover:bg-primary/5"
-          >
-            <IconPhoto className="h-4 w-4" /> Kirim Foto
-          </Link>
+          <SuggestButton kind="galeri" memberId={member.id} label="Kirim Foto" />
           <ShareButton title={`${member.name} — Bani Amenan Effendi`} />
         </div>
       </div>
@@ -101,6 +97,15 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
             </div>
           </div>
         </section>
+      </Reveal>
+
+      {/* Kontribusi: usulkan foto profil / bio (lewat approval) */}
+      <Reveal delay={60} className="mt-4">
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-edge bg-surface-2 px-4 py-3">
+          <span className="mr-1 text-sm text-muted">Bantu lengkapi profil ini:</span>
+          <SuggestButton kind="foto-profil" memberId={member.id} label="Sarankan Foto Profil" />
+          <SuggestButton kind="bio" memberId={member.id} label="Sarankan Bio" />
+        </div>
       </Reveal>
 
       {/* Galeri foto */}
