@@ -3,6 +3,7 @@
 // Pemotong foto (crop) interaktif: geser + zoom di dalam bingkai beraspek
 // tertentu, lalu hasil crop diekspor sebagai Blob JPEG. Tanpa dependency.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useModal, isTopmost } from "@/components/use-modal";
 import { IconClose, IconZoomIn, IconZoomOut } from "@/components/icons";
 
@@ -169,7 +170,8 @@ export function ImageCropper({
     );
   }
 
-  return (
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Sesuaikan foto">
       <div ref={dialogRef} className="max-h-[90vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl border border-edge bg-surface-3 p-5 shadow-ambient-lg">
         <div className="mb-3 flex items-center justify-between">
@@ -232,6 +234,7 @@ export function ImageCropper({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

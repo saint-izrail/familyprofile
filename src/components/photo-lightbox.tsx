@@ -2,6 +2,7 @@
 
 // Galeri foto dengan lightbox: klik thumbnail -> tampilan penuh + navigasi.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useModal, isTopmost } from "@/components/use-modal";
 import { IconClose, IconArrowLeft, IconArrowRight } from "@/components/icons";
@@ -58,7 +59,7 @@ export function PhotoLightbox({ photos }: { photos: Photo[] }) {
         ))}
       </div>
 
-      {open !== null && (
+      {open !== null && createPortal(
         <div
           ref={dialogRef}
           role="dialog"
@@ -103,7 +104,8 @@ export function PhotoLightbox({ photos }: { photos: Photo[] }) {
             {photos[open].caption && <figcaption className="text-sm text-white/80">{photos[open].caption}</figcaption>}
             <p className="text-xs text-white/50">{open + 1} / {photos.length}</p>
           </figure>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

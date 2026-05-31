@@ -3,6 +3,7 @@
 // Command palette pencarian anggota. Buka via tombol pemicu atau ⌘K / Ctrl+K.
 // Mengambil data dari /api/search?q=… lalu menavigasi ke /anggota/<id>.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { initials } from "@/lib/format";
 import { useModal, isTopmost } from "@/components/use-modal";
@@ -138,7 +139,7 @@ export function CommandPalette() {
         </kbd>
       </button>
 
-      {open && (
+      {open && createPortal(
         <div ref={dialogRef} className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label="Pencarian anggota">
           <button
             type="button"
@@ -232,7 +233,8 @@ export function CommandPalette() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

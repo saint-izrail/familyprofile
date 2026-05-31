@@ -5,6 +5,7 @@
 // agenda). Usulan menunggu persetujuan admin, jadi tidak ada perubahan publik
 // sampai disetujui (tidak perlu router.refresh).
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ImageCropper } from "@/components/image-cropper";
 import { useModal, isTopmost } from "@/components/use-modal";
 import { IconPhoto, IconUser, IconCalendar, IconClose, IconUpload, IconCheck, IconSparkle } from "@/components/icons";
@@ -302,7 +303,7 @@ export function SuggestButton({
         {label ?? defaultLabel(kind)}
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
           className="fixed inset-0 z-[95] flex items-center justify-center bg-black/70 p-4 backdrop-blur"
           onMouseDown={(e) => {
@@ -610,7 +611,8 @@ export function SuggestButton({
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {cropFile && (
