@@ -1,6 +1,5 @@
-// Seed pohon keluarga — disalin dari daftar yang diberikan.
-// Catatan: beberapa nomor pada sumber ada salah ketik (mis. anak 3.6.2 tertulis
-// "3.6.1.2"), di sini sudah dirapikan agar konsisten. Nama dipertahankan apa adanya.
+// Seed pohon keluarga — versi terbaru (disalin dari daftar resmi).
+// Mencakup koreksi nama, anggota baru, dan tanda almarhum.
 import { PrismaClient } from "../src/generated/prisma";
 
 const prisma = new PrismaClient();
@@ -28,6 +27,7 @@ const ROOT: Node = {
           number: "3.6.1.1",
           name: "Nur Wulan Sarwo Rini",
           spouseName: "Agus Endarto",
+          spouseDeceased: true,
           children: [
             { number: "3.6.1.1.1", name: "Nafiah Lintang Saraswati", isDeceased: true },
             { number: "3.6.1.1.2", name: "Haidar Lintang Nuswantoro" },
@@ -48,8 +48,10 @@ const ROOT: Node = {
     },
     {
       number: "3.6.2",
-      name: "Firdaus S.U",
+      name: "Firdaus Sukmo Utomo",
       spouseName: "Kuri Ilmiyati",
+      isDeceased: true,
+      spouseDeceased: true,
       children: [
         {
           number: "3.6.2.1",
@@ -59,11 +61,19 @@ const ROOT: Node = {
         },
         {
           number: "3.6.2.2",
-          name: "Rusydan Saeful Utomo",
+          name: "Rusydan Syaiful Utomo",
           spouseName: "Sari Wulandari",
-          children: [{ number: "3.6.2.2.1", name: "Arsakha Rasendria Al-Rasyad" }],
+          children: [
+            { number: "3.6.2.2.1", name: "Arsakha Rasendria Al Rasyad" },
+            { number: "3.6.2.2.2", name: "Arcelio Avanoska Al Rasyad" },
+          ],
         },
-        { number: "3.6.2.3", name: "Firmansyah Nur Utomo", spouseName: "Tri Mulyati" },
+        {
+          number: "3.6.2.3",
+          name: "Firmansyah Nur Utomo",
+          spouseName: "Tri Mulyati",
+          children: [{ number: "3.6.2.3.1", name: "Razan Khalaif Utomo" }],
+        },
         { number: "3.6.2.4", name: "Muhammad Fahri Nur Utomo" },
       ],
     },
@@ -75,7 +85,7 @@ const ROOT: Node = {
         {
           number: "3.6.3.1",
           name: "Putri Nur Ratnasari",
-          spouseName: "Rahmad Ade Surya",
+          spouseName: "Rahmat Ade Surya",
           children: [{ number: "3.6.3.1.1", name: "Haziqah Almahyra Jannah" }],
         },
         { number: "3.6.3.2", name: "Nur Muhammad Fatahu Rozaq" },
@@ -86,10 +96,15 @@ const ROOT: Node = {
       name: "Erma Sukmawati",
       spouseName: "Yani Tri Hakoso",
       children: [
-        { number: "3.6.4.1", name: "Muh. Nur Arka Putra" },
+        {
+          number: "3.6.4.1",
+          name: "Muh. Nur Arka Putra",
+          spouseName: "Farina Astriani",
+          children: [{ number: "3.6.4.1.1", name: "Izyan Kilua Atharrazka" }],
+        },
         {
           number: "3.6.4.2",
-          name: "Muh Fauzi Dwi Hakoso",
+          name: "Muh. Fauzi Dwi Hakoso",
           spouseName: "Dini Restumurti",
           children: [
             { number: "3.6.4.2.1", name: "Abercio Faeyza Putra Hakoso" },
@@ -110,7 +125,7 @@ const ROOT: Node = {
     {
       number: "3.6.6",
       name: "Didin Sukmo Prasojo",
-      spouseName: "Hirania Tirsani",
+      spouseName: "Hairania Tirsani",
       children: [
         { number: "3.6.6.1", name: "Muh Daffa Adyatma Prasojo" },
         { number: "3.6.6.2", name: "Tsabita Nasya Anindita Prasojo" },
@@ -123,16 +138,16 @@ const ROOT: Node = {
       spouseName: "Budi Santoso",
       children: [
         { number: "3.6.7.1", name: "Muh Farid Aji Nur Wahid" },
-        { number: "3.6.7.2", name: "Almaira Aira" },
+        { number: "3.6.7.2", name: "Nur Fitria Almaira" },
       ],
     },
     {
       number: "3.6.8",
       name: "Subuh Sukmono Putro",
-      spouseName: "Diana Laraswati",
+      spouseName: "Diana Larasati",
       children: [
         { number: "3.6.8.1", name: "Aqsal Raffa Sandito" },
-        { number: "3.6.8.2", name: "Dinda Aura Kahirunnisa" },
+        { number: "3.6.8.2", name: "Dinda Aura Khairunnisa" },
       ],
     },
     {
@@ -164,12 +179,11 @@ const ROOT: Node = {
 };
 
 async function insertNode(node: Node, parentId: string | null, order: number) {
-  // Anggota garis keturunan (blood descendant)
   const desc = await prisma.member.create({
     data: {
       number: node.number,
       name: node.name,
-      spouseName: node.spouseName ?? null, // denormalized untuk tampilan ringkas
+      spouseName: node.spouseName ?? null,
       isDeceased: node.isDeceased ?? false,
       spouseDeceased: node.spouseDeceased ?? false,
       parentId,
@@ -178,7 +192,6 @@ async function insertNode(node: Node, parentId: string | null, order: number) {
     },
   });
 
-  // Pasangan sebagai anggota nyata (punya halaman sendiri), saling tertaut.
   if (node.spouseName) {
     const spouse = await prisma.member.create({
       data: {
@@ -201,12 +214,11 @@ async function insertNode(node: Node, parentId: string | null, order: number) {
 }
 
 async function main() {
-  // Reset agar idempoten
   await prisma.photo.deleteMany();
   await prisma.member.deleteMany();
   await insertNode(ROOT, null, 0);
   const count = await prisma.member.count();
-  console.log(`✓ Seeded ${count} anggota keluarga.`);
+  console.log(`✓ Seeded ${count} anggota keluarga (data terbaru).`);
 }
 
 main()
