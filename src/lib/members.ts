@@ -147,7 +147,7 @@ export async function getFamily(anyId: string): Promise<FamilyData | null> {
   const anchorId = base.marriedIn && base.partnerId ? base.partnerId : base.id;
   const anchor = await prisma.member.findUnique({
     where: { id: anchorId },
-    include: { partner: { select: { id: true, name: true, isDeceased: true, avatarUrl: true, bio: true, birthInfo: true } } },
+    include: { partner: { select: { id: true, name: true, isDeceased: true, avatarUrl: true, bio: true, birthInfo: true, familyPhotoUrl: true } } },
   });
   if (!anchor) return null;
 
@@ -167,7 +167,8 @@ export async function getFamily(anyId: string): Promise<FamilyData | null> {
   return {
     anchorId,
     number: anchor.number,
-    familyPhotoUrl: anchor.familyPhotoUrl,
+    // Foto keluarga bisa diisi dari salah satu pasangan.
+    familyPhotoUrl: anchor.familyPhotoUrl ?? anchor.partner?.familyPhotoUrl ?? null,
     bio: anchor.bio,
     birthInfo: anchor.birthInfo,
     members,
