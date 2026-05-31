@@ -38,6 +38,7 @@ model Member {
   avatarUrl      String? // foto profil utama
   familyPhotoUrl String? // foto keluarga (untuk node berkeluarga)
   photos         Photo[] // galeri foto
+  events         Event[] // agenda/momen terkait anggota ini
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -46,16 +47,36 @@ model Member {
   @@map("members")
 }
 
-// Galeri foto per anggota (fleksibel — sebanyak yang diupload).
+// Galeri foto per anggota. approved=false = menunggu persetujuan admin
+// (dari upload mandiri publik), tidak tampil sampai disetujui.
 model Photo {
-  id        String   @id @default(uuid())
-  memberId  String
-  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  url       String
-  caption   String?
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  memberId    String
+  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  url         String
+  caption     String?
+  order       Int      @default(0)
+  approved    Boolean  @default(true)
+  submittedBy String? // nama pengirim (untuk upload mandiri)
+  createdAt   DateTime @default(now())
 
   @@index([memberId])
+  @@index([approved])
   @@map("photos")
+}
+
+// Agenda / momen penting: ulang tahun, acara, rencana (mis. jalan-jalan).
+model Event {
+  id          String   @id @default(uuid())
+  title       String
+  date        DateTime // tanggal momen
+  type        String   @default("acara") // "ulang-tahun" | "acara" | "rencana"
+  recurring   Boolean  @default(false) // berulang tiap tahun (mis. ulang tahun)
+  description String?
+  memberId    String?
+  member      Member?  @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@index([date])
+  @@map("events")
 }

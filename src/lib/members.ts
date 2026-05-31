@@ -79,7 +79,7 @@ export async function getMemberFull(id: string): Promise<MemberFull | null> {
   const m = await prisma.member.findUnique({
     where: { id },
     include: {
-      photos: { orderBy: { order: "asc" } },
+      photos: { where: { approved: true }, orderBy: { order: "asc" } },
       partner: { select: { id: true, name: true, number: true, isDeceased: true, avatarUrl: true, parentId: true } },
       parent: { select: { id: true, name: true, number: true } },
     },
@@ -311,13 +311,41 @@ export async function getRoot() {
   return prisma.member.findFirst({ where: { parentId: null, marriedIn: false }, orderBy: { order: "asc" } });
 }
 
+// Foto menunggu persetujuan (upload mandiri publik) — untuk dasbor admin.
+export type PendingPhoto = {
+  id: string;
+  url: string;
+  caption: string | null;
+  submittedBy: string | null;
+  createdAt: string;
+  memberId: string;
+  memberName: string;
+};
+
+export async function getPendingPhotos(): Promise<PendingPhoto[]> {
+  const rows = await prisma.photo.findMany({
+    where: { approved: false },
+    orderBy: { createdAt: "desc" },
+    include: { member: { select: { name: true } } },
+  });
+  return rows.map((p) => ({
+    id: p.id,
+    url: p.url,
+    caption: p.caption,
+    submittedBy: p.submittedBy,
+    createdAt: p.createdAt.toISOString(),
+    memberId: p.memberId,
+    memberName: p.member.name,
+  }));
+}
+
 // Foto-foto untuk carousel beranda = galeri anggota akar (Amenan Effendi).
 // Bila galeri kosong, pakai foto keluarga / avatar sebagai cadangan.
 export async function getLandingPhotos(): Promise<{ url: string; caption: string | null }[]> {
   const root = await prisma.member.findFirst({
     where: { parentId: null, marriedIn: false },
     orderBy: { order: "asc" },
-    include: { photos: { orderBy: { order: "asc" } } },
+    include: { photos: { where: { approved: true }, orderBy: { order: "asc" } } },
   });
   if (!root) return [];
   const list = root.photos.map((p) => ({ url: p.url, caption: p.caption }));

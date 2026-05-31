@@ -3,9 +3,12 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { AdminMember } from "@/lib/members";
+import type { AdminMember, PendingPhoto, FlatMember } from "@/lib/members";
+import type { EventItem } from "@/lib/events";
 import { BrandMark } from "@/components/brand-mark";
 import { ImageCropper } from "@/components/image-cropper";
+import { RequestsAdmin } from "@/components/requests-admin";
+import { EventsAdmin } from "@/components/events-admin";
 import {
   IconPlus,
   IconEdit,
@@ -144,14 +147,21 @@ function ImageInput({
 
 export function AdminDashboard({
   members,
+  pending,
+  events,
+  flatMembers,
   storageOn,
   dbError,
 }: {
   members: AdminMember[];
+  pending: PendingPhoto[];
+  events: EventItem[];
+  flatMembers: FlatMember[];
   storageOn: boolean;
   dbError: boolean;
 }) {
   const router = useRouter();
+  const [tab, setTab] = useState<"anggota" | "foto" | "agenda">("anggota");
   const [panelOpen, setPanelOpen] = useState(false);
   const [editing, setEditing] = useState<AdminMember | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY);
@@ -325,6 +335,33 @@ export function AdminDashboard({
         </div>
       </header>
 
+      {/* Tab navigasi admin */}
+      <div className="mt-6 flex gap-1 overflow-x-auto border-b border-edge">
+        {(
+          [
+            { k: "anggota", label: `Anggota (${members.length})` },
+            { k: "foto", label: `Permintaan Foto (${pending.length})` },
+            { k: "agenda", label: `Agenda (${events.length})` },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.k}
+            type="button"
+            onClick={() => setTab(t.k)}
+            className={`-mb-px shrink-0 rounded-t-lg px-4 py-2.5 text-sm font-semibold transition-colors ${
+              tab === t.k ? "border-b-2 border-primary-dark text-primary-deep" : "text-muted hover:text-primary-deep"
+            }`}
+          >
+            {t.label}
+            {t.k === "foto" && pending.length > 0 && (
+              <span className="ml-1.5 rounded-full bg-gold px-1.5 py-0.5 text-[10px] font-bold text-on-accent">{pending.length}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {tab === "anggota" && (
+        <>
       <div className="mt-6 flex items-center justify-between gap-4">
         <div>
           <h1 className="font-serif text-2xl font-bold text-primary-deep">Kelola Anggota</h1>
@@ -500,6 +537,19 @@ export function AdminDashboard({
           </ul>
         )}
       </section>
+        </>
+      )}
+
+      {tab === "foto" && (
+        <div className="mt-6">
+          <RequestsAdmin pending={pending} />
+        </div>
+      )}
+      {tab === "agenda" && (
+        <div className="mt-6">
+          <EventsAdmin events={events} members={flatMembers} />
+        </div>
+      )}
     </main>
   );
 }

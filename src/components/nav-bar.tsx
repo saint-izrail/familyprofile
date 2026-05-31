@@ -6,12 +6,13 @@ import { usePathname } from "next/navigation";
 import { BrandMark } from "@/components/brand-mark";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandPalette } from "@/components/command-palette";
-import { IconHome, IconTree, IconList, IconSparkle, IconHeart } from "@/components/icons";
+import { IconHome, IconTree, IconList, IconSparkle, IconHeart, IconCalendar } from "@/components/icons";
 
 const NAV = [
   { href: "/", label: "Beranda", icon: IconHome },
   { href: "/silsilah", label: "Silsilah", icon: IconTree },
   { href: "/daftar", label: "Daftar", icon: IconList },
+  { href: "/agenda", label: "Agenda", icon: IconCalendar },
   { href: "/statistik", label: "Statistik", icon: IconSparkle },
   { href: "/hubungan", label: "Hubungan", icon: IconHeart },
 ];

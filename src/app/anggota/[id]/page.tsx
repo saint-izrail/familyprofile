@@ -51,6 +51,12 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
           >
             <IconUsers className="h-4 w-4" /> Profil Keluarga
           </Link>
+          <Link
+            href={`/kirim-foto?member=${member.id}`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-surface-2 px-4 py-2 text-sm font-medium text-primary-deep transition-colors hover:bg-primary/5"
+          >
+            <IconPhoto className="h-4 w-4" /> Kirim Foto
+          </Link>
           <ShareButton title={`${member.name} — Bani Amenan Effendi`} />
         </div>
       </div>
